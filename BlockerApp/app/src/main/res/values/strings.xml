@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">بلاکر</string>
+    <string name="apps_list_title">انتخاب برنامه‌های مسدود</string>
+    <string name="accessibility_service_description">این سرویس برای مسدود کردن برنامه‌ها، سایت‌ها و کلمات کلیدی مورد نظر شما استفاده می‌شود.</string>
+</resources>
