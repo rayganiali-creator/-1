@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies>
+        <!-- حداقل پالیسی لازم؛ بلاک حذف از مسیر Device Owner و setUninstallBlocked انجام می‌شود -->
+        <force-lock />
+    </uses-policies>
+</device-admin>
