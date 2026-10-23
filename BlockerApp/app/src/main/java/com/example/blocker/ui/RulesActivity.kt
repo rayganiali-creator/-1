@@ -71,19 +71,13 @@ class RulesActivity : AppCompatActivity() {
                 }
                 c.addView(UiKit.body(this, meta, 12f))
                 val btns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-                btns.addView(com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonTextStyle).apply {
-                    text = "ویرایش"; isEnabled = !locked
-                    setOnClickListener { if (!guardLocked()) showRuleDialog(rule) }
-                })
-                btns.addView(com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonTextStyle).apply {
-                    text = "حذف"; isEnabled = !locked
-                    setOnClickListener {
-                        if (!guardLocked()) {
-                            PrefsManager.removeRule(this@RulesActivity, rule.id)
-                            render()
-                        }
+                btns.addView(UiKit.textButton(this, "ویرایش") { if (!guardLocked()) showRuleDialog(rule) }.apply { isEnabled = !locked })
+                btns.addView(UiKit.textButton(this, "حذف") {
+                    if (!guardLocked()) {
+                        PrefsManager.removeRule(this@RulesActivity, rule.id)
+                        render()
                     }
-                })
+                }.apply { isEnabled = !locked })
                 c.addView(btns)
             })
         }
@@ -113,12 +107,9 @@ class RulesActivity : AppCompatActivity() {
         sites.sorted().forEach { domain ->
             column.addView(UiKit.card(this) { c ->
                 c.addView(UiKit.row(this, UiKit.body(this, domain, 15f),
-                    com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonTextStyle).apply {
-                        text = "حذف"; isEnabled = !locked
-                        setOnClickListener {
-                            if (!guardLocked()) { PrefsManager.removeBlockedWebsite(this@RulesActivity, domain); render() }
-                        }
-                    }))
+                    UiKit.textButton(this, "حذف") {
+                        if (!guardLocked()) { PrefsManager.removeBlockedWebsite(this@RulesActivity, domain); render() }
+                    }.apply { isEnabled = !locked }))
             })
         }
         val domainInput = EditText(this).apply { hint = "example.com"; inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI }

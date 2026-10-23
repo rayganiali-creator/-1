@@ -85,12 +85,30 @@ object UiKit {
         }
 
     fun tonalButton(context: Context, text: String, onClick: () -> Unit): MaterialButton =
-        MaterialButton(context, null, com.google.android.material.R.attr.materialButtonTonalStyle).apply {
+        MaterialButton(context).apply {
+            // Tonal appearance via the app's own M3 tokens: the Material library has no
+            // materialButtonTonalStyle theme attr, so the tint is applied explicitly.
+            backgroundTintList = android.content.res.ColorStateList.valueOf(
+                ContextCompat.getColor(context, R.color.blocker_primary_container)
+            )
+            setTextColor(ContextCompat.getColor(context, R.color.blocker_primary))
             this.text = text
             cornerRadius = dp(context, 12)
             minHeight = dp(context, 48)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { bottomMargin = dp(context, 8) }
+            setOnClickListener { onClick() }
+        }
+
+    fun textButton(context: Context, text: String, onClick: () -> Unit): MaterialButton =
+        MaterialButton(context).apply {
+            // Text-button appearance explicitly (the Material library has no
+            // materialButtonTextStyle theme attr): transparent background, primary label.
+            backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+            setTextColor(ContextCompat.getColor(context, R.color.blocker_primary))
+            strokeWidth = 0
+            elevation = 0f
+            this.text = text
             setOnClickListener { onClick() }
         }
 
