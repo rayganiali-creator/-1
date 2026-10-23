@@ -1,0 +1,22 @@
+// Delegate ریشه برای CI:
+// ورک‌فلوی فعلی (.github/workflows/build-apk.yml) دستور `gradle assembleDebug` را از ریشه‌ی
+// ریپو اجرا می‌کند و artifact را از app/build/outputs/apk/debug/ برمی‌دارد، در حالی که پروژه
+// داخل BlockerApp/ است. چون اپ گیت‌هاب اجازه‌ی ویرایش فایل‌های ورک‌فلو را ندارد، این فایل
+// همان قرارداد را از بیرون کامل می‌کند: بیلد واقعی (همراه تست‌های یونیت) داخل BlockerApp
+// اجرا و APK به مسیر مورد انتظار ورک‌فلو کپی می‌شود.
+// اگر روزی ورک‌فلو اصلاح شد و مستقیم داخل BlockerApp اجرا شد، این دو فایل ریشه بی‌اثر و قابل حذف‌اند.
+
+tasks.register('buildBlocker', GradleBuild) {
+    dir = file('BlockerApp')
+    tasks = ['testDebugUnitTest', 'assembleDebug']
+}
+
+tasks.register('assembleDebug') {
+    dependsOn 'buildBlocker'
+    doLast {
+        copy {
+            from 'BlockerApp/app/build/outputs/apk/debug/app-debug.apk'
+            into 'app/build/outputs/apk/debug'
+        }
+    }
+}
