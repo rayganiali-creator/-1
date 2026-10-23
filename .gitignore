@@ -1,0 +1,7 @@
+# فایل‌های محلی و خروجی بیلد هرگز نباید کامیت شوند
+BlockerApp/local.properties
+BlockerApp/.gradle/
+BlockerApp/app/build/
+BlockerApp/build/
+*.iml
+.idea/

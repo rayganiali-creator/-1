@@ -2,25 +2,40 @@ package com.example.blocker
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Toast
+import com.example.blocker.core.KeywordMatcher
+import com.example.blocker.core.KeywordRule
+import com.example.blocker.core.PendingBlockManager
+import com.example.blocker.core.SessionMode
+import com.example.blocker.core.TextNormalizer
+import com.example.blocker.session.SessionManager
 
 /**
- * این سرویس قلب برنامه بلاکر است.
- * هر بار که صفحه یا محتوای صفحه روی گوشی تغییر می‌کند، اندروید این سرویس را
- * با یک AccessibilityEvent خبر می‌کند. ما بررسی می‌کنیم:
- *   ۱) آیا برنامه‌ی در حال اجرا در لیست برنامه‌های مسدود است؟
- *   ۲) اگر مرورگر است، آیا آدرس سایت با لیست سایت‌های مسدود مطابقت دارد؟
- *   ۳) آیا متن روی صفحه شامل یکی از کلمات کلیدی مسدود شده است؟
- * در صورت مطابقت، کاربر را به صفحه‌ی BlockedScreenActivity می‌فرستیم.
+ * قلب اجرای بلاکر.
+ *
+ * کانفیگ مؤثر:
+ * - اگر سشن Strict فعال باشد، فقط snapshot قفل‌شده‌ی همان سشن اعمال می‌شود
+ *   (تغییر لیست‌ها در میانه‌ی سشن اثری ندارد).
+ * - در بقیه‌ی حالت‌ها (از جمله بدون سشن، مثل نسخه‌ی قبلی) کانفیگ زنده اعمال می‌شود.
+ *
+ * دیلی: هر تریگر واجد شرایط اول وارد PendingBlockManager می‌شود؛ اگر کانتکست
+ * عوض شود اقدام معلق کنسل می‌شود و لحظه‌ی اجرا تطبیق دوباره بررسی می‌شود.
+ * دیلی از تنظیمات گرفته می‌شود (در سشن Strict از snapshot سشن).
+ *
+ * محدودیت صادقانه: فقط متن قابل مشاهده در نودهای accessibility دیده می‌شود؛
+ * متن داخل عکس/ویدیو، WebView های خاص و صفحه‌های امن پوشش تضمینی ندارند.
  */
 class BlockAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "BlockerService"
+        @Volatile var instanceAlive: Boolean = false
 
-        // شناسه‌ی نوار آدرس (url bar) در معروف‌ترین مرورگرها
         private val URL_BAR_IDS = listOf(
             "com.android.chrome:id/url_bar",
             "com.chrome.beta:id/url_bar",
@@ -35,100 +50,207 @@ class BlockAccessibilityService : AccessibilityService() {
         )
     }
 
+    private data class EffectiveConfig(
+        val apps: Set<String>,
+        val websites: Set<String>,
+        val rules: List<KeywordRule>,
+        val delaySeconds: Int,
+        val strict: Boolean
+    )
+
+    private data class Candidate(
+        val signature: String,
+        val ruleKey: String,
+        val message: String,
+        val packageName: String
+    )
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val pendingBlocks = PendingBlockManager()
+    private var pendingRunnable: Runnable? = null
     private var lastBlockedSignature: String = ""
     private var lastBlockedTime: Long = 0L
+    private var lastHeartbeat: Long = 0L
+    private var lastSessionCheck: Long = 0L
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        instanceAlive = true
+    }
+
+    override fun onDestroy() {
+        instanceAlive = false
+        cancelPendingRunnable()
+        super.onDestroy()
+    }
+
+    private fun effectiveConfig(): EffectiveConfig {
+        val session = SessionManager.activeSession(this)
+        return if (session != null && session.mode == SessionMode.STRICT) {
+            EffectiveConfig(
+                apps = SessionManager.snapshotApps(session.configSnapshotJson),
+                websites = SessionManager.snapshotWebsites(session.configSnapshotJson),
+                rules = SessionManager.snapshotRules(session.configSnapshotJson),
+                delaySeconds = session.delaySeconds,
+                strict = true
+            )
+        } else {
+            EffectiveConfig(
+                apps = PrefsManager.getBlockedApps(this),
+                websites = PrefsManager.getBlockedWebsites(this),
+                rules = PrefsManager.getRules(this).filter { it.enabled },
+                delaySeconds = PrefsManager.getDelaySeconds(this),
+                strict = false
+            )
+        }
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         val packageName = event.packageName?.toString() ?: return
-
-        // خود برنامه‌ی بلاکر و صفحه‌ی مسدودی را هرگز مسدود نکن
         if (packageName == this.packageName) return
+        heartbeat()
+        maybeCheckSession()
 
         try {
-            // ۱) بررسی لیست برنامه‌های مسدود شده
-            val blockedApps = PrefsManager.getBlockedApps(this)
-            if (blockedApps.contains(packageName)) {
-                triggerBlock("app:$packageName", "این برنامه توسط شما مسدود شده است.")
+            val config = effectiveConfig()
+            val candidate = findCandidate(packageName, config)
+
+            if (candidate == null) {
+                // کانتکست دیگر واجد شرایط نیست → اقدام معلق کنسل شود
+                pendingBlocks.cancelIfDifferent(null)
+                cancelPendingRunnable()
                 return
             }
 
-            val root = rootInActiveWindow ?: return
-
-            // ۲) بررسی آدرس سایت در صورتی که برنامه یک مرورگر شناخته شده باشد
-            val blockedWebsites = PrefsManager.getBlockedWebsites(this)
-            if (blockedWebsites.isNotEmpty()) {
-                val url = findUrlText(root)
-                if (url != null) {
-                    val lowerUrl = url.lowercase()
-                    for (domain in blockedWebsites) {
-                        if (domain.isNotBlank() && lowerUrl.contains(domain)) {
-                            triggerBlock("site:$domain", "دسترسی به این سایت مسدود شده است.\n($domain)")
-                            return
-                        }
-                    }
-                }
+            if (config.delaySeconds <= 0) {
+                fireBlock(candidate)
+                return
             }
 
-            // ۳) بررسی کلمات کلیدی در کل متن صفحه (مستقل از نوع برنامه)
-            val blockedKeywords = PrefsManager.getBlockedKeywords(this)
-            if (blockedKeywords.isNotEmpty()) {
-                val screenText = StringBuilder()
-                collectText(root, screenText, maxNodes = 400)
-                val lowerScreen = screenText.toString().lowercase()
-                for (keyword in blockedKeywords) {
-                    if (keyword.isNotBlank() && lowerScreen.contains(keyword)) {
-                        triggerBlock("keyword:$keyword", "این صفحه به دلیل شامل بودن یک کلمه‌ی\nمسدود شده، بسته شد.")
-                        return
-                    }
-                }
+            // دیلی واقعی: زمان‌بندی + شمارش معکوس حداقلی
+            val now = System.currentTimeMillis()
+            val isNew = pendingBlocks.current()?.signature != candidate.signature
+            val pending = pendingBlocks.schedule(candidate.signature, candidate.ruleKey, now, config.delaySeconds)
+            if (isNew) {
+                Toast.makeText(this, "محتوای مسدود شناسایی شد؛ ${config.delaySeconds} ثانیه تا بستن…", Toast.LENGTH_SHORT).show()
             }
+            cancelPendingRunnable()
+            val delayMs = (pending.fireAtMillis - System.currentTimeMillis()).coerceAtLeast(0L)
+            val runnable = Runnable { revalidateAndFire(candidate, config) }
+            pendingRunnable = runnable
+            handler.postDelayed(runnable, delayMs)
         } catch (e: Exception) {
             Log.e(TAG, "error while processing event", e)
         }
     }
 
-    /** به صورت بازگشتی و محدود، متن نودهای accessibility را جمع می‌کند. */
-    private fun collectText(node: AccessibilityNodeInfo?, sb: StringBuilder, maxNodes: Int, visited: IntArray = intArrayOf(0)) {
-        if (node == null || visited[0] >= maxNodes) return
-        visited[0] = visited[0] + 1
-
-        node.text?.let { sb.append(it).append(' ') }
-        node.contentDescription?.let { sb.append(it).append(' ') }
-
-        for (i in 0 until node.childCount) {
-            if (visited[0] >= maxNodes) break
-            collectText(node.getChild(i), sb, maxNodes, visited)
+    /** لحظه‌ی اجرا: دوباره بررسی می‌کنیم که تریگر هنوز سر جایش هست یا نه. */
+    private fun revalidateAndFire(original: Candidate, config: EffectiveConfig) {
+        if (!pendingBlocks.consumeIfDue(System.currentTimeMillis(), original.signature)) return
+        val fresh = try { findCandidate(original.packageName, config) } catch (e: Exception) { null }
+        if (fresh != null && fresh.signature == original.signature) {
+            fireBlock(fresh)
         }
     }
 
-    /** تلاش می‌کند متن نوار آدرس مرورگر را با شناسه‌های شناخته‌شده پیدا کند. */
+    private fun findCandidate(packageName: String, config: EffectiveConfig): Candidate? {
+        // ۱) بلاک برنامه
+        if (config.apps.contains(packageName)) {
+            return Candidate("app:$packageName", "app:$packageName", "این برنامه توسط شما مسدود شده است.", packageName)
+        }
+        val root = rootInActiveWindow ?: return null
+        try {
+            // ۲) بلاک دامنه از نوار آدرس مرورگر
+            if (config.websites.isNotEmpty()) {
+                val url = findUrlText(root)
+                if (url != null) {
+                    val normalizedUrl = TextNormalizer.normalize(url)
+                    for (domain in config.websites) {
+                        val d = TextNormalizer.normalize(domain)
+                        if (d.isNotBlank() && normalizedUrl.contains(d)) {
+                            return Candidate("site:$domain", "site:$domain", "دسترسی به این سایت مسدود شده است.\n($domain)", packageName)
+                        }
+                    }
+                }
+            }
+            // ۳) بلاک کلمه‌کلیدی با موتور نرمال‌سازی + allowlist
+            if (config.rules.isNotEmpty()) {
+                val screenText = StringBuilder()
+                collectText(root, screenText, maxNodes = 400)
+                val match = KeywordMatcher.firstBlockMatch(config.rules, screenText.toString(), packageName)
+                if (match != null) {
+                    return Candidate(
+                        "keyword:${match.rule.id}",
+                        "keyword:${match.rule.text}",
+                        "این صفحه به دلیل شامل بودن یک کلمه‌ی مسدود شده، بسته شد.",
+                        packageName
+                    )
+                }
+            }
+        } finally {
+            // root از rootInActiveWindow گرفته شده و recycle آن با خود سیستم است؛ فرزندان داخل collectText مدیریت می‌شوند.
+        }
+        return null
+    }
+
+    private fun collectText(node: AccessibilityNodeInfo?, sb: StringBuilder, maxNodes: Int, visited: IntArray = intArrayOf(0)) {
+        if (node == null || visited[0] >= maxNodes) return
+        visited[0] = visited[0] + 1
+        node.text?.let { sb.append(it).append(' ') }
+        node.contentDescription?.let { sb.append(it).append(' ') }
+        for (i in 0 until node.childCount) {
+            if (visited[0] >= maxNodes) break
+            val child = node.getChild(i) ?: continue
+            try { collectText(child, sb, maxNodes, visited) } finally { child.recycle() }
+        }
+    }
+
     private fun findUrlText(root: AccessibilityNodeInfo): String? {
         for (id in URL_BAR_IDS) {
             val nodes = root.findAccessibilityNodeInfosByViewId(id)
             if (nodes != null && nodes.isNotEmpty()) {
                 val text = nodes[0].text?.toString()
+                nodes.forEach { it.recycle() }
                 if (!text.isNullOrBlank()) return text
             }
         }
         return null
     }
 
-    /** جلوگیری از باز کردن مکرر صفحه‌ی مسدودی برای همان رخداد در بازه‌ی زمانی کوتاه. */
-    private fun triggerBlock(signature: String, message: String) {
+    private fun fireBlock(candidate: Candidate) {
         val now = System.currentTimeMillis()
-        if (signature == lastBlockedSignature && now - lastBlockedTime < 1500) return
-        lastBlockedSignature = signature
+        if (candidate.signature == lastBlockedSignature && now - lastBlockedTime < 1500) return
+        lastBlockedSignature = candidate.signature
         lastBlockedTime = now
-
-        // ابتدا کاربر را به صفحه‌ی اصلی می‌بریم تا برنامه/سایت مسدود از پس‌زمینه هم خارج شود
+        PrefsManager.recordBlock(this, candidate.ruleKey)
         performGlobalAction(GLOBAL_ACTION_HOME)
-
         val intent = Intent(this, BlockedScreenActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra(BlockedScreenActivity.EXTRA_MESSAGE, message)
+            putExtra(BlockedScreenActivity.EXTRA_MESSAGE, candidate.message)
         }
         startActivity(intent)
+    }
+
+    private fun cancelPendingRunnable() {
+        pendingRunnable?.let { handler.removeCallbacks(it) }
+        pendingRunnable = null
+    }
+
+    private fun heartbeat() {
+        val now = System.currentTimeMillis()
+        if (now - lastHeartbeat < 5_000L) return
+        lastHeartbeat = now
+        getSharedPreferences("blocker_diag", MODE_PRIVATE).edit()
+            .putLong("a11y_last_seen", now).apply()
+    }
+
+    private fun maybeCheckSession() {
+        val now = System.currentTimeMillis()
+        if (now - lastSessionCheck < 5_000L) return
+        lastSessionCheck = now
+        // current() گذارهای زمانی (انقضا/خروج) را idempotent اعمال می‌کند
+        SessionManager.current(this)
     }
 
     override fun onInterrupt() {

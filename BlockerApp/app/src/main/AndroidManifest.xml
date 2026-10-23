@@ -2,16 +2,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- برای دیدن لیست برنامه‌های نصب شده روی گوشی -->
+    <!-- برای دیدن لیست برنامه‌های نصب شده روی گوشی (انتخاب برنامه‌های هدف) -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Blocker">
 
@@ -24,10 +29,19 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".AppsListActivity"
-            android:exported="false"
-            android:label="@string/apps_list_title" />
+        <activity android:name=".AppsListActivity" android:exported="false" android:label="@string/apps_list_title" />
+        <activity android:name=".ui.SessionActivity" android:exported="false" android:label="سشن فوکوس" />
+        <activity android:name=".ui.RulesActivity" android:exported="false" android:label="قوانین و کلمات کلیدی" />
+        <activity android:name=".ui.ProfilesActivity" android:exported="false" android:label="پروفایل‌های فوکوس" />
+        <activity android:name=".ui.SchedulesActivity" android:exported="false" android:label="زمان‌بندی‌ها" />
+        <activity android:name=".ui.DiagnosticsActivity" android:exported="false" android:label="سلامت محافظت" />
+        <activity android:name=".ui.ReportsActivity" android:exported="false" android:label="گزارش‌ها" />
+        <activity android:name=".ui.BackupActivity" android:exported="false" android:label="بکاپ و بازیابی" />
+        <activity android:name=".ui.SettingsActivity" android:exported="false" android:label="تنظیمات" />
+        <activity android:name=".ui.OnboardingActivity" android:exported="false" android:label="راه‌اندازی" />
+        <activity android:name=".ui.AboutActivity" android:exported="false" android:label="درباره و محدودیت‌ها" />
+        <!-- ریکاوری اضطراری exported است تا حتی با adb هم باز شود: am start -n com.example.blocker/.ui.RecoveryActivity -->
+        <activity android:name=".ui.RecoveryActivity" android:exported="true" android:label="ریکاوری اضطراری" />
 
         <activity
             android:name=".BlockedScreenActivity"
@@ -48,6 +62,43 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+
+        <service
+            android:name=".service.SessionForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Active focus session timer and protection status for the user's own blocking session" />
+        </service>
+
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".scheduling.ScheduleReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".admin.BlockDeviceAdminReceiver"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

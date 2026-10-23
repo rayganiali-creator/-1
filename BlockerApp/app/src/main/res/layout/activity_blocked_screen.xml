@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:background="@color/accent"
+    android:background="@color/blocker_blocked_bg"
     android:padding="32dp">
 
     <TextView
@@ -13,6 +13,16 @@
         android:text="⛔"
         android:textSize="64sp"
         android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/txtSessionInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:visibility="gone"
+        android:layout_marginBottom="12dp" />
 
     <TextView
         android:id="@+id/txtMessage"

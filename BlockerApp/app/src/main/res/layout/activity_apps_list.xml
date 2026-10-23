@@ -6,6 +6,15 @@
     android:background="@color/background">
 
     <TextView
+        android:id="@+id/txtStrictLock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:text="🔒 سشن Strict فعال است؛ تغییر برنامه‌های هدف تا پایان سشن قفل است."
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="16dp"

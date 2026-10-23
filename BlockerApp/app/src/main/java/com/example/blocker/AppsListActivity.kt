@@ -22,6 +22,9 @@ class AppsListActivity : AppCompatActivity() {
         title = getString(R.string.apps_list_title)
 
         binding.recyclerApps.layoutManager = LinearLayoutManager(this)
+        if (com.example.blocker.session.SessionManager.isStrictActive(this)) {
+            binding.txtStrictLock.visibility = View.VISIBLE
+        }
         loadApps()
     }
 
@@ -30,8 +33,14 @@ class AppsListActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.Main).launch {
             val apps = withContext(Dispatchers.IO) { fetchInstalledApps() }
             binding.progressBar.visibility = View.GONE
+            val strictLocked = com.example.blocker.session.SessionManager.isStrictActive(this@AppsListActivity)
             val adapter = AppsAdapter(apps.toMutableList()) { app, checked ->
-                PrefsManager.toggleBlockedApp(this@AppsListActivity, app.packageName, checked)
+                if (strictLocked) {
+                    android.widget.Toast.makeText(this@AppsListActivity, "در سشن Strict تغییر برنامه‌های هدف قفل است.", android.widget.Toast.LENGTH_LONG).show()
+                    loadApps()
+                } else {
+                    PrefsManager.toggleBlockedApp(this@AppsListActivity, app.packageName, checked)
+                }
             }
             binding.recyclerApps.adapter = adapter
         }
