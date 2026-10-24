@@ -46,7 +46,7 @@ class RulesActivity : AppCompatActivity() {
         }
 
         column.addView(UiKit.title(this, "کلمات و عبارات", 19f))
-        column.addView(UiKit.body(this, "کلمه فقط وقتی بلاک می‌شود که آن را جستجو کنی (جعبه‌ی جستجو یا نوار آدرس) یا در متن صفحه باشد؛ صرفِ دیده شدن در لیست تاریخچه یا پیشنهادها بلاک نمی‌کند. قوانین فقط وسط سشن اعمال می‌شوند. با کلید کنار هر قانون می‌توانی آن را موقتاً خاموش کنی."))
+        column.addView(UiKit.body(this, "کلمه فقط وقتی بلاک می‌شود که آن را جستجو کنی (جعبه‌ی جستجو یا نوار آدرس) یا در متن صفحه باشد؛ صرفِ دیده شدن در لیست تاریخچه یا پیشنهادها بلاک نمی‌کند. کلمات همیشه به‌صورت کلمه‌ی کامل تطبیق داده می‌شوند؛ «فوت» روی «فوتبال» صدق نمی‌کند. قوانین فقط وسط سشن اعمال می‌شوند. با کلید کنار هر قانون می‌توانی آن را موقتاً خاموش کنی."))
         val rules = PrefsManager.getRules(this)
         if (rules.isEmpty()) column.addView(UiKit.card(this) { c ->
             c.addView(UiKit.body(this, "هنوز قانونی ثبت نشده است. اولین کلمه را اضافه کن تا سد جلویش را بگیرد."))
@@ -68,7 +68,6 @@ class RulesActivity : AppCompatActivity() {
                 chipsRow1.addView(UiKit.miniChip(this, "تأخیر: ${RuleDelays.labelFa(rule.delaySeconds)}"))
                 c.addView(chipsRow1)
                 val optional = mutableListOf<String>()
-                if (rule.wholeWord) optional.add("فقط کلمه‌ی کامل")
                 if (rule.caseSensitive) optional.add("حساس به بزرگی حروف")
                 if (rule.isAllow) optional.add("قانون اجازه")
                 if (optional.isNotEmpty()) {
@@ -163,7 +162,6 @@ class RulesActivity : AppCompatActivity() {
             box.addView(row)
             return sw
         }
-        val whole = switchOption("فقط تطبیق کلمه‌ی کامل (داخل کلمه‌ی دیگر صدق نکند)", existing?.wholeWord ?: false)
         val caseS = switchOption("حساس به بزرگی/کوچکی حروف لاتین", existing?.caseSensitive ?: false)
         val allow = switchOption("قانون اجازه (allowlist) — بر بلاک غلبه می‌کند", existing?.isAllow ?: false)
         box.addView(UiKit.body(this, "تأخیر بلاک بعد از شناسایی:", 13f))
@@ -205,7 +203,7 @@ class RulesActivity : AppCompatActivity() {
                     text = text,
                     category = catIn.text.toString().trim().ifEmpty { "عمومی" },
                     enabled = existing?.enabled ?: true,
-                    wholeWord = whole.isChecked,
+                    wholeWord = true,
                     caseSensitive = caseS.isChecked,
                     isAllow = allow.isChecked,
                     targetPackages = targetsIn.text.toString().split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet(),

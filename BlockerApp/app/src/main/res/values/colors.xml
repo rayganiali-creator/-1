@@ -24,7 +24,7 @@
     <color name="blocker_error">#FF6B5E</color>
     <color name="blocker_success">#34D399</color>
     <color name="blocker_warning">#FFB020</color>
-    <color name="blocker_blocked_bg">#14181D</color>
+    <color name="blocker_blocked_bg">#102A43</color>
 
     <!-- متن روی دکمه‌ی نعنایی -->
     <color name="blocker_on_hero">#14181D</color>

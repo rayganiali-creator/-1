@@ -45,8 +45,12 @@ class KeywordMatcherTest {
     private fun rule(text: String, whole: Boolean = false, allow: Boolean = false, enabled: Boolean = true) =
         KeywordRule(id = "r-$text", text = text, wholeWord = whole, isAllow = allow, enabled = enabled)
 
-    @Test fun substringMatch() {
-        assertNotNull(KeywordMatcher.match(rule("قمار"), "سایت قماربازی باز شد"))
+    @Test fun wholeWordAlwaysApplies() {
+        // «فوت» نباید «فوتبال» را بگیرد — حتی وقتی پرچم wholeWord خاموش است؛
+        // تطبیق همیشه مرزی است. ولی کلمه‌ی مستقل و کلمه‌ی کنار نشانه‌گذاری می‌گیرد.
+        assertNull(KeywordMatcher.match(rule("فوت"), "فوتبال"))
+        assertNotNull(KeywordMatcher.match(rule("فوت"), "من فوت کردم"))
+        assertNotNull(KeywordMatcher.match(rule("فوت"), "فوت، بازی"))
     }
     @Test fun wholeWordRejectsInsideWord() {
         assertNull(KeywordMatcher.match(rule("قمار", whole = true), "قماربازی"))

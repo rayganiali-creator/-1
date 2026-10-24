@@ -21,7 +21,8 @@ data class KeywordRule(
     val text: String,
     val category: String = "عمومی",
     val enabled: Boolean = true,
-    val wholeWord: Boolean = false,
+    /** نگه داشته شده برای سازگاری JSON؛ تطبیق همیشه مرزی (کل کلمه) است. */
+    val wholeWord: Boolean = true,
     val caseSensitive: Boolean = false,
     /** اگر true باشد، این قانون «اجازه» است و بر بلاک غلبه می‌کند (allowlist). */
     val isAllow: Boolean = false,
@@ -78,7 +79,9 @@ object KeywordMatcher {
 
     /**
      * بررسی یک قانون روی یک متن. اگر قانون غیرفعال یا خالی باشد null برمی‌گردد.
-     * wholeWord=true یعنی دو طرف تطبیق نباید حرف/رقم باشد (مرز کلمه).
+     * تطبیق همیشه مرزی است (کل کلمه): در فارسی، تطبیق زیررشته‌ای ماشینِ
+     * مثبتِ کاذب است — «فوت» نباید «فوتبال» را بگیرد. پرچم wholeWord فقط برای
+     * سازگاری JSON نگه داشته شده و دیگر بر تطبیق اثری ندارد.
      */
     fun match(rule: KeywordRule, rawText: String): MatchResult? {
         if (!rule.enabled) return null
@@ -92,7 +95,7 @@ object KeywordMatcher {
         while (true) {
             val idx = haystack.indexOf(needle, from)
             if (idx < 0) return null
-            if (!rule.wholeWord || isWholeWordAt(haystack, idx, needle.length)) {
+            if (isWholeWordAt(haystack, idx, needle.length)) {
                 return MatchResult(rule, needle, idx)
             }
             from = idx + 1
