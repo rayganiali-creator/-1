@@ -13,6 +13,8 @@ class BlockedScreenActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_MESSAGE = "extra_message"
+        const val EXTRA_RULE_ID = "extra_rule_id"
+        const val EXTRA_EVIDENCE = "extra_evidence"
     }
 
     private lateinit var binding: ActivityBlockedScreenBinding
@@ -34,6 +36,26 @@ class BlockedScreenActivity : AppCompatActivity() {
         window.statusBarColor = bg
 
         binding.btnBackHome.setOnClickListener { goHome() }
+
+        // بازخورد یادگیری: فقط برای بلاک کلمه‌کلیدی (بلاک برنامه/سایت و گارد
+        // خودمحافظتی این دکمه را ندارند). با زدن آن، همان عبارت برای همان قانون
+        // دیگر بلاک نمی‌شود — موتور از همین‌جا یاد می‌گیرد.
+        val ruleId = intent.getStringExtra(EXTRA_RULE_ID)
+        val evidence = intent.getStringExtra(EXTRA_EVIDENCE)
+        val btnWrong = findViewById<android.widget.TextView>(R.id.btnWrongBlock)
+        if (!ruleId.isNullOrBlank() && !evidence.isNullOrBlank()) {
+            btnWrong.visibility = android.view.View.VISIBLE
+            btnWrong.setOnClickListener {
+                PrefsManager.addLearnedAllow(this, ruleId, evidence)
+                android.widget.Toast.makeText(
+                    this, "یاد گرفتم؛ این عبارت دیگر برای این قانون بلاک نمی‌شود",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                goHome()
+            }
+        } else {
+            btnWrong.visibility = android.view.View.GONE
+        }
 
         // انیمیشن سبک خرس ایجنت: ورود با جهش نرم، بعد تکان ملایم و همیشگی.
         // بدون هیچ کتابخانه‌ای؛ فقط دو سه انیماتور روی یک ImageView.

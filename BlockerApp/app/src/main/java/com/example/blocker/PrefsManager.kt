@@ -7,6 +7,7 @@ import com.example.blocker.core.CoolingOff
 import com.example.blocker.core.FocusProfile
 import com.example.blocker.core.KeywordRule
 import com.example.blocker.core.RuleDelays
+import com.example.blocker.core.SemanticEngine
 import com.example.blocker.core.SessionMode
 import com.example.blocker.core.SessionSchedule
 import org.json.JSONArray
@@ -39,6 +40,8 @@ object PrefsManager {
     private const val KEY_ONBOARDING_STEP = "onboarding_step"
     private const val KEY_LAST_DIAGNOSTIC = "last_diagnostic_at"
     private const val KEY_SELF_PROTECTION = "self_protection_enabled"
+    /** اجازه‌های آموخته‌شده از بازخورد «این بلاک اشتباه بود»: «شناسه‌ی قانون|ریشه‌ی عبارت». */
+    private const val KEY_LEARNED_ALLOW = "learned_allow_v1"
     private const val KEY_THEME = "theme"
     private const val KEY_BLOCKED_BG = "blocked_bg"
 
@@ -131,6 +134,19 @@ object PrefsManager {
 
     fun categories(context: Context): List<String> =
         getRules(context).map { it.category }.distinct().sorted()
+
+    /** اجازه‌های آموخته‌شده از بازخورد کاربر روی صفحه‌ی بلاک. */
+    fun getLearnedAllow(context: Context): Set<String> =
+        HashSet(prefs(context).getStringSet(KEY_LEARNED_ALLOW, emptySet()) ?: emptySet())
+
+    /** ثبت اینکه این عبارت برای این قانون اشتباه بلاک شده؛ دفعات بعد همان عبارت بلاک نمی‌شود. */
+    fun addLearnedAllow(context: Context, ruleId: String, evidence: String) {
+        val key = "$ruleId|${SemanticEngine.evidenceKey(evidence)}"
+        val set = getLearnedAllow(context).toMutableSet()
+        if (set.add(key)) {
+            prefs(context).edit().putStringSet(KEY_LEARNED_ALLOW, set).apply()
+        }
+    }
 
     fun ruleToJson(r: KeywordRule): JSONObject = JSONObject().apply {
         put("id", r.id); put("text", r.text); put("category", r.category)

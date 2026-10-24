@@ -8,7 +8,7 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
-import com.example.blocker.core.KeywordMatcher
+import com.example.blocker.core.SemanticEngine
 import com.example.blocker.core.KeywordRule
 import com.example.blocker.core.KeywordScope
 import com.example.blocker.core.OwnAppGuard
@@ -72,7 +72,10 @@ class BlockAccessibilityService : AccessibilityService() {
         val message: String,
         val packageName: String,
         /** تأخیر بلاک این کاندید بعد از شناسایی؛ برای کلمه از قانون، برای بقیه از دیلی سراسری/سشن. */
-        val delaySeconds: Int
+        val delaySeconds: Int,
+        /** برای بلاک کلمه‌کلیدی: شناسه‌ی قانون و عبارتِ شاهد، برای بازخورد «اشتباه بود». */
+        val ruleId: String? = null,
+        val evidence: String? = null
     )
 
     private val handler = Handler(Looper.getMainLooper())
@@ -316,22 +319,27 @@ class BlockAccessibilityService : AccessibilityService() {
                     }
                 }
             }
-            // ۳) بلاک کلمه‌کلیدی با موتور نرمال‌سازی + allowlist — فقط روی متنِ
-            // ورودی (جستجو/نوار آدرس) و متن محتوای غیرلیستی؛ متن داخل لیست‌ها
+            // ۳) بلاک کلمه‌کلیدی با موتور معنایی روی دستگاه (ریشه‌یابی + فازی +
+            // خوشه‌ی موضوعی + جریمه‌ی زمینه‌ی ترک) و اجازه‌های آموخته‌شده — فقط روی
+            // متنِ ورودی (جستجو/نوار آدرس) و متن محتوای غیرلیستی؛ متن داخل لیست‌ها
             // (تاریخچه، پیشنهادها، فید) به‌تنهایی بلاک نمی‌کند.
             if (config.rules.isNotEmpty()) {
                 val inputText = StringBuilder()
                 val contentText = StringBuilder()
                 collectScopedText(root, inputText, contentText, inList = false, maxNodes = 400)
                 val scopedText = inputText.toString() + " " + contentText.toString()
-                val match = KeywordMatcher.firstBlockMatch(config.rules, scopedText, packageName)
+                val match = SemanticEngine.firstSemanticMatch(
+                    config.rules, scopedText, packageName, PrefsManager.getLearnedAllow(this)
+                )
                 if (match != null) {
                     return Candidate(
                         "keyword:${match.rule.id}",
                         "keyword:${match.rule.text}",
                         "این صفحه به دلیل شامل بودن یک کلمه‌ی مسدود شده، بسته شد.",
                         packageName,
-                        match.rule.effectiveDelaySeconds(config.delaySeconds)
+                        match.rule.effectiveDelaySeconds(config.delaySeconds),
+                        match.rule.id,
+                        match.evidence
                     )
                 }
             }
@@ -397,6 +405,9 @@ class BlockAccessibilityService : AccessibilityService() {
         val intent = Intent(this, BlockedScreenActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(BlockedScreenActivity.EXTRA_MESSAGE, candidate.message)
+            // برای بازخورد یادگیری روی صفحه‌ی بلاک (فقط بلاک کلمه‌کلیدی).
+            candidate.ruleId?.let { putExtra(BlockedScreenActivity.EXTRA_RULE_ID, it) }
+            candidate.evidence?.let { putExtra(BlockedScreenActivity.EXTRA_EVIDENCE, it) }
         }
         startActivity(intent)
     }

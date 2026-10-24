@@ -1,7 +1,10 @@
 package com.example.blocker.ui
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -79,6 +82,7 @@ class SettingsActivity : AppCompatActivity() {
 
         renderSelfProtectionCard()
         renderDeviceAdminCard()
+        renderBatteryCard()
 
         column.addView(UiKit.card(this) { c ->
             c.addView(UiKit.title(this, "رنگ پس‌زمینه", 17f))
@@ -201,6 +205,37 @@ class SettingsActivity : AppCompatActivity() {
                     DeviceAdminSetup.requestDeviceAdmin(this)
                 })
             }
+        })
+    }
+
+    /**
+     * زنده ماندن در برابر خواب گوشی: معافیت باتری مؤثرترین اهرمِ در اختیار یک
+     * برنامه‌ی معمولی در برابر کشته‌شدن توسط سامسونگ است — با تأیید خود کاربر
+     * (دیالوگ سیستم) درخواست می‌شود، نه خودکار.
+     */
+    private fun renderBatteryCard() {
+        column.addView(UiKit.card(this) { c ->
+            c.addView(UiKit.title(this, "زنده ماندن در برابر خواب گوشی", 17f))
+            val pm = getSystemService(POWER_SERVICE) as PowerManager
+            val ignoring = pm.isIgnoringBatteryOptimizations(packageName)
+            if (ignoring) {
+                c.addView(UiKit.body(this, "✅ معافیت باتری فعال است؛ اندروید «سد» را در خواب عمیق نمی‌کشد.", 13f))
+            } else {
+                c.addView(UiKit.body(this, "⚠️ معافیت باتری فعال نیست؛ سامسونگ بعد از چند ساعت بی‌کاری ممکن است «سد» را متوقف کند.", 13f))
+                c.addView(UiKit.tonalButton(this, "درخواست معافیت باتری") {
+                    try {
+                        startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                            data = Uri.parse("package:$packageName")
+                        })
+                    } catch (e: Exception) {
+                        try {
+                            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                        } catch (ignored: Exception) {
+                        }
+                    }
+                })
+            }
+            c.addView(UiKit.body(this, "نکته‌ی سامسونگ: در تنظیمات گوشی هم «سد» را به Never sleeping apps اضافه کن و در صفحه‌ی برنامه‌های اخیر روی «سد» قفل بگذار.", 12f))
         })
     }
 }
