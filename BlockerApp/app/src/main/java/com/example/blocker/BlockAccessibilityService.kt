@@ -10,6 +10,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import com.example.blocker.core.KeywordMatcher
 import com.example.blocker.core.KeywordRule
+import com.example.blocker.core.KeywordScope
 import com.example.blocker.core.OwnAppGuard
 import com.example.blocker.core.PendingBlockManager
 import com.example.blocker.core.SelfProtection
@@ -98,16 +99,23 @@ class BlockAccessibilityService : AccessibilityService() {
 
     private fun effectiveConfig(): EffectiveConfig {
         val session = SessionManager.activeSession(this)
-        return if (session != null && session.mode == SessionMode.STRICT) {
-            EffectiveConfig(
+        return when {
+            // بدون سشن، هیچ بلاک محتوایی نیست: صرفِ اضافه کردن قانون بلاک نمی‌کند.
+            session == null -> EffectiveConfig(
+                apps = emptySet(),
+                websites = emptySet(),
+                rules = emptyList(),
+                delaySeconds = 0,
+                strict = false
+            )
+            session.mode == SessionMode.STRICT -> EffectiveConfig(
                 apps = SessionManager.snapshotApps(session.configSnapshotJson),
                 websites = SessionManager.snapshotWebsites(session.configSnapshotJson),
                 rules = SessionManager.snapshotRules(session.configSnapshotJson),
                 delaySeconds = session.delaySeconds,
                 strict = true
             )
-        } else {
-            EffectiveConfig(
+            else -> EffectiveConfig(
                 apps = PrefsManager.getBlockedApps(this),
                 websites = PrefsManager.getBlockedWebsites(this),
                 rules = PrefsManager.getRules(this).filter { it.enabled },
@@ -285,6 +293,10 @@ class BlockAccessibilityService : AccessibilityService() {
         // زمان‌دار)، متن پنجره‌ی خودمان هرگز ارزیابی نمی‌شود.
         val activeWindowPackage = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
         if (OwnAppGuard.shouldSkip(null, activeWindowPackage, this.packageName)) return null
+        // بلاک محتوا فقط وسط سشن: بدون سشنِ فعال، هیچ اپ/سایت/کلمه‌ای بلاک نمی‌شود.
+        // (این گارد، بازبینیِ بلاکِ معلقِ زمان‌دار را هم پوشش می‌دهد: اگر سشن وسط
+        // دیلی تمام شود، بلاک شلیک نمی‌شود.)
+        if (SessionManager.activeSession(this) == null) return null
         // ۱) بلاک برنامه
         if (config.apps.contains(packageName)) {
             return Candidate("app:$packageName", "app:$packageName", "این برنامه توسط شما مسدود شده است.", packageName, config.delaySeconds)
@@ -304,11 +316,15 @@ class BlockAccessibilityService : AccessibilityService() {
                     }
                 }
             }
-            // ۳) بلاک کلمه‌کلیدی با موتور نرمال‌سازی + allowlist
+            // ۳) بلاک کلمه‌کلیدی با موتور نرمال‌سازی + allowlist — فقط روی متنِ
+            // ورودی (جستجو/نوار آدرس) و متن محتوای غیرلیستی؛ متن داخل لیست‌ها
+            // (تاریخچه، پیشنهادها، فید) به‌تنهایی بلاک نمی‌کند.
             if (config.rules.isNotEmpty()) {
-                val screenText = StringBuilder()
-                collectText(root, screenText, maxNodes = 400)
-                val match = KeywordMatcher.firstBlockMatch(config.rules, screenText.toString(), packageName)
+                val inputText = StringBuilder()
+                val contentText = StringBuilder()
+                collectScopedText(root, inputText, contentText, inList = false, maxNodes = 400)
+                val scopedText = inputText.toString() + " " + contentText.toString()
+                val match = KeywordMatcher.firstBlockMatch(config.rules, scopedText, packageName)
                 if (match != null) {
                     return Candidate(
                         "keyword:${match.rule.id}",
@@ -325,15 +341,37 @@ class BlockAccessibilityService : AccessibilityService() {
         return null
     }
 
-    private fun collectText(node: AccessibilityNodeInfo?, sb: StringBuilder, maxNodes: Int, visited: IntArray = intArrayOf(0)) {
+    /**
+     * جمع‌آوری متن پنجره با قاعده‌ی KeywordScope: متن ورودی (جعبه‌ی جستجو/آدرس)
+     * و متن محتوا (غیرلیستی) جدا جمع می‌شوند؛ متن داخل لیست‌ها (تاریخچه،
+     * پیشنهادها، فید) در هیچ‌کدام نمی‌آید تا صرفِ دیده شدن کلمه بلاک نکند.
+     */
+    private fun collectScopedText(
+        node: AccessibilityNodeInfo?,
+        inputSb: StringBuilder,
+        contentSb: StringBuilder,
+        inList: Boolean,
+        maxNodes: Int,
+        visited: IntArray = intArrayOf(0)
+    ) {
         if (node == null || visited[0] >= maxNodes) return
         visited[0] = visited[0] + 1
-        node.text?.let { sb.append(it).append(' ') }
-        node.contentDescription?.let { sb.append(it).append(' ') }
+        val cls = node.className?.toString()
+        val nowInList = inList || KeywordScope.isListContainerClass(cls)
+        val isInput = KeywordScope.isInputNode(cls, node.isEditable)
+        val target = when {
+            isInput -> inputSb
+            nowInList -> null
+            else -> contentSb
+        }
+        if (target != null) {
+            node.text?.let { target.append(it).append(' ') }
+            node.contentDescription?.let { target.append(it).append(' ') }
+        }
         for (i in 0 until node.childCount) {
             if (visited[0] >= maxNodes) break
             val child = node.getChild(i) ?: continue
-            try { collectText(child, sb, maxNodes, visited) } finally { child.recycle() }
+            try { collectScopedText(child, inputSb, contentSb, nowInList, maxNodes, visited) } finally { child.recycle() }
         }
     }
 

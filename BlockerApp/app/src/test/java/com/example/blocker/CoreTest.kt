@@ -201,6 +201,19 @@ class SelfProtectionGuardTest {
         assertFalse(SelfProtection.isGuardEffective(persistedOn = false, strictActive = false))
     }
 
+    @Test fun keywordScopeListAndInput() {
+        // ظرف‌های لیستی (تاریخچه، پیشنهادها، فید) متن‌شان برای تطبیق حساب نمی‌شود.
+        assertTrue(com.example.blocker.core.KeywordScope.isListContainerClass("androidx.recyclerview.widget.RecyclerView"))
+        assertTrue(com.example.blocker.core.KeywordScope.isListContainerClass("android.widget.ListView"))
+        assertTrue(com.example.blocker.core.KeywordScope.isListContainerClass("android.widget.GridView"))
+        assertFalse(com.example.blocker.core.KeywordScope.isListContainerClass("android.webkit.WebView"))
+        assertFalse(com.example.blocker.core.KeywordScope.isListContainerClass("android.widget.TextView"))
+        // فیلدهای ورودی (جستجو/آدرس) حساب می‌شوند.
+        assertTrue(com.example.blocker.core.KeywordScope.isInputNode("android.widget.EditText", false))
+        assertTrue(com.example.blocker.core.KeywordScope.isInputNode("android.view.View", true))
+        assertFalse(com.example.blocker.core.KeywordScope.isInputNode("android.widget.TextView", false))
+    }
+
     @Test fun accessibilityListPageNotGuarded() {
         // لیست سرویس‌ها: لیبل ما هست ولی توضیح کامل و Switch سرویس ما نیست
         val text = "دسترسی‌پذیری TalkBack سد منوی دسترسی"

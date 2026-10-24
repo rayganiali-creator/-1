@@ -46,7 +46,7 @@ class RulesActivity : AppCompatActivity() {
         }
 
         column.addView(UiKit.title(this, "کلمات و عبارات", 19f))
-        column.addView(UiKit.body(this, "هر کلمه یا عبارتی که روی صفحه دیده شود، سد صفحه را می‌بندد. با کلید کنار هر قانون می‌توانی آن را موقتاً خاموش کنی."))
+        column.addView(UiKit.body(this, "کلمه فقط وقتی بلاک می‌شود که آن را جستجو کنی (جعبه‌ی جستجو یا نوار آدرس) یا در متن صفحه باشد؛ صرفِ دیده شدن در لیست تاریخچه یا پیشنهادها بلاک نمی‌کند. قوانین فقط وسط سشن اعمال می‌شوند. با کلید کنار هر قانون می‌توانی آن را موقتاً خاموش کنی."))
         val rules = PrefsManager.getRules(this)
         if (rules.isEmpty()) column.addView(UiKit.card(this) { c ->
             c.addView(UiKit.body(this, "هنوز قانونی ثبت نشده است. اولین کلمه را اضافه کن تا سد جلویش را بگیرد."))

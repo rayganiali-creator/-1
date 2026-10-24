@@ -47,12 +47,28 @@ class SessionForegroundService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var alertShown = false
+
+    /** تیک زنده‌ی ویجت (هر ثانیه)؛ فقط وقتی ویجتی نصب شده است. */
+    private val widgetTicker = object : Runnable {
+        override fun run() {
+            SessionWidgetUpdater.updateAll(this@SessionForegroundService)
+            handler.postDelayed(this, 1_000L)
+        }
+    }
+
+    private fun startWidgetTicker() {
+        handler.removeCallbacks(widgetTicker)
+        if (SessionWidgetUpdater.hasWidget(this)) handler.post(widgetTicker)
+    }
     private val ticker = object : Runnable {
         override fun run() {
             val s = SessionManager.activeSession(this@SessionForegroundService)
             if (s == null) { stopSelf(); return }
             notify(buildNotification(s))
             SessionWidgetUpdater.updateAll(this@SessionForegroundService)
+            // اگر ویجت وسط سشن نصب شده باشد، تیک زنده‌اش را حداکثر تا ۳۰ ثانیه‌ی
+            // دیگر راه بینداز (شروع سشن، ویجتی نداشت که تیکش را روشن کند).
+            startWidgetTicker()
             // نگهبان خاموشی سرویس: اگر وسط سشن، سرویس دسترسی خاموش شد، به‌جای
             // سکوت (که یعنی «محافظت ادامه دارد» در حالی که ندارد) یک بار هشدار بده.
             // با برگشتن سرویس، پرچم ریست می‌شود تا خاموشی بعدی دوباره هشدار بدهد.
@@ -87,12 +103,14 @@ class SessionForegroundService : Service() {
         handler.removeCallbacks(ticker)
         handler.postDelayed(ticker, 30_000L)
         SessionWidgetUpdater.updateAll(this)
+        startWidgetTicker()
         return START_STICKY
     }
 
     override fun onDestroy() {
         running = false
         handler.removeCallbacks(ticker)
+        handler.removeCallbacks(widgetTicker)
         SessionWidgetUpdater.updateAll(this)
         super.onDestroy()
     }

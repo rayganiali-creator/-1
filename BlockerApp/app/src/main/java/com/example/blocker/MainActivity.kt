@@ -150,8 +150,12 @@ class MainActivity : AppCompatActivity() {
         // قرص وضعیت محافظت (مینیمال: نقطه‌ی رنگی + عنوان + زیرنویس)
         val level = ProtectionHealth.protectionLevel(this)
         val a11y = ProtectionHealth.isAccessibilityEnabled(this)
-        if (a11y) {
+        val session = SessionManager.activeSession(this)
+        if (a11y && session != null) {
             column.addView(UiKit.statusPill(this, true, "محافظت فعال است", level.descriptionFa))
+        } else if (a11y) {
+            column.addView(UiKit.statusPill(this, false, "سشنی فعال نیست",
+                "بلاک فقط وسط سشن انجام می‌شود؛ برای شروع بلاک، یک سشن شروع کن."))
         } else {
             column.addView(UiKit.statusPill(this, false, "محافظت خاموش است",
                 "سرویس دسترسی خاموش است؛ در این وضعیت هیچ بلاکی اجرا نمی‌شود."))
@@ -161,7 +165,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         // کارت سشن
-        val session = SessionManager.activeSession(this)
         if (session != null) {
             val remaining = SessionManager.remainingMillis(this, session)
             val fraction = if (session.durationMillis > 0) (remaining.toFloat() / session.durationMillis.toFloat()) else 0f
