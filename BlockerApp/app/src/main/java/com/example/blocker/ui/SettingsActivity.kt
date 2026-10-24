@@ -123,6 +123,12 @@ class SettingsActivity : AppCompatActivity() {
         })
 
         column.addView(UiKit.tonalButton(this, "سلامت و تشخیص محافظت") { startActivity(Intent(this, DiagnosticsActivity::class.java)) })
+        column.addView(UiKit.tonalButton(this, "هوش روی دستگاه") { startActivity(Intent(this, AiSettingsActivity::class.java)) })
+        column.addView(UiKit.tonalButton(this, "راه‌اندازی و دسترسی‌ها (بازبینی)") {
+            startActivity(Intent(this, OnboardingActivity::class.java).apply {
+                putExtra(OnboardingActivity.EXTRA_REPAIR, true)
+            })
+        })
         column.addView(UiKit.tonalButton(this, "بکاپ و بازیابی کانفیگ") { startActivity(Intent(this, BackupActivity::class.java)) })
         column.addView(UiKit.tonalButton(this, "درباره، حریم خصوصی و محدودیت‌ها") { startActivity(Intent(this, AboutActivity::class.java)) })
         column.addView(UiKit.outlinedButton(this, "ریکاوری اضطراری و عیب‌یابی") { startActivity(Intent(this, RecoveryActivity::class.java)) })

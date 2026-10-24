@@ -12,12 +12,14 @@ import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.example.blocker.PrefsManager
 import com.example.blocker.core.SessionMode
 import com.example.blocker.health.ProtectionHealth
 import com.example.blocker.service.SessionForegroundService
 import com.example.blocker.session.SessionManager
 import com.example.blocker.ui.AboutActivity
 import com.example.blocker.ui.DiagnosticsActivity
+import com.example.blocker.ui.AiSettingsActivity
 import com.example.blocker.ui.OnboardingActivity
 import com.example.blocker.ui.ProfilesActivity
 import com.example.blocker.ui.ReportsActivity
@@ -167,7 +169,10 @@ class MainActivity : AppCompatActivity() {
             column.addView(UiKit.statusPill(this, false, "محافظت خاموش است",
                 "سرویس دسترسی خاموش است؛ در این وضعیت هیچ بلاکی اجرا نمی‌شود."))
             column.addView(UiKit.tonalButton(this, "فعال‌سازی سرویس دسترسی") {
-                startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                // جریان تعمیر متمرکز، نه پرش مستقیم به تنظیمات بدون راهنما.
+                startActivity(Intent(this, OnboardingActivity::class.java).apply {
+                    putExtra(OnboardingActivity.EXTRA_REPAIR, true)
+                })
             })
         }
 
@@ -248,6 +253,19 @@ class MainActivity : AppCompatActivity() {
             grid.addView(tile)
         }
         column.addView(grid)
+
+        // کارت وضعیت هوش روی دستگاه — خلاصه، بدون جزئیات فنی؛ جزئیات در صفحه‌ی خودش است.
+        column.addView(UiKit.card(this) { c ->
+            c.addView(UiKit.title(this, "هوش روی دستگاه", 17f))
+            val aiOn = PrefsManager.isAiEnabled(this)
+            val aiPolicy = PrefsManager.getDecisionPolicy(this)
+            c.addView(UiKit.body(this,
+                if (aiOn) "معنایی فعال است (سیاست ${aiPolicy.labelFa})؛ مدل عصبی در دسترس نیست."
+                else "معنایی خاموش است؛ فقط کلمات دقیق بلاک می‌شوند."))
+            c.addView(UiKit.tonalButton(this, "مدیریت هوش مصنوعی") {
+                startActivity(Intent(this, AiSettingsActivity::class.java))
+            })
+        })
 
         // دکمه‌ی اصلی پایین
         column.addView(UiKit.primaryButton(this, if (session != null) "مشاهده‌ی سشن" else "شروع سشن") {

@@ -5,6 +5,7 @@ import com.example.blocker.core.SemanticEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SemanticEngineTest {
@@ -57,9 +58,12 @@ class SemanticEngineTest {
         assertNotNull(match("کازینو و پوکر", listOf(rule("قمار"))))
     }
 
-    @Test fun recoveryContextVetoesExact() {
-        // «ترک قمار» بحث درباره‌ی ترک است، نه خود قمار.
-        assertNull(match("دارم ترک قمار می‌کنم", listOf(rule("قمار"))))
+    @Test fun recoveryContextLowersExactScore() {
+        // وتو حالا در خط لوله اعمال می‌شود؛ موتور امتیازِ کم‌شده را با پرچم قطعی برمی‌گرداند.
+        val m = SemanticEngine.firstSemanticMatch(listOf(rule("قمار")), "دارم ترک قمار می‌کنم")
+        assertNotNull(m)
+        assertEquals(0.2, m!!.score, 0.001)
+        assertTrue(m.exact)
     }
 
     @Test fun recoveryContextDoesNotSaveStrongTopic() {

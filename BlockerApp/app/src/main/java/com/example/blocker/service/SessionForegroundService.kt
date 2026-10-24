@@ -35,9 +35,19 @@ class SessionForegroundService : Service() {
         @Volatile var running: Boolean = false
 
         fun start(context: Context) {
-            val intent = Intent(context, SessionForegroundService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
-            else context.startService(intent)
+            // شروع از پس‌زمینه (مثلاً از گیرنده‌ی زمان‌بندی) در اندروید ۱۲+ گاهی
+            // ForegroundServiceStartNotAllowedException می‌دهد؛ استثنا نباید
+            // فراخواننده (گیرنده/اکتیویتی) را بکشد — ثبت و عبور، نه سقوط.
+            try {
+                val intent = Intent(context, SessionForegroundService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
+                else context.startService(intent)
+            } catch (e: Exception) {
+                try {
+                    PrefsManager.recordProtectionFailure(context, "fgs_start_failed")
+                } catch (ignored: Exception) {
+                }
+            }
         }
 
         fun stop(context: Context) {
@@ -48,10 +58,16 @@ class SessionForegroundService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var alertShown = false
 
-    /** تیک زنده‌ی ویجت (هر ثانیه)؛ فقط وقتی ویجتی نصب شده است. */
+    /** تیک زنده‌ی ویجت (هر ثانیه)؛ فقط وقتی ویجتی نصب شده است.
+     * بدنه زیر چتر است: استثنای نادرِ تیکر روی نخ اصلی، کل فرایند را نمی‌کشد؛
+     * تیک بعدی طبق زمان‌بندی ادامه می‌دهد (نه حلقه‌ی بی‌پایانِ راه‌اندازی مجدد). */
     private val widgetTicker = object : Runnable {
         override fun run() {
-            SessionWidgetUpdater.updateAll(this@SessionForegroundService)
+            try {
+                SessionWidgetUpdater.updateAll(this@SessionForegroundService)
+            } catch (e: Exception) {
+                // ثبت نمی‌کنیم تا لاگ را پر نکند؛ تیک بعدی ادامه می‌دهد.
+            }
             handler.postDelayed(this, 1_000L)
         }
     }
@@ -62,24 +78,32 @@ class SessionForegroundService : Service() {
     }
     private val ticker = object : Runnable {
         override fun run() {
-            val s = SessionManager.activeSession(this@SessionForegroundService)
-            if (s == null) { stopSelf(); return }
-            notify(buildNotification(s))
-            SessionWidgetUpdater.updateAll(this@SessionForegroundService)
-            // اگر ویجت وسط سشن نصب شده باشد، تیک زنده‌اش را حداکثر تا ۳۰ ثانیه‌ی
-            // دیگر راه بینداز (شروع سشن، ویجتی نداشت که تیکش را روشن کند).
-            startWidgetTicker()
-            // نگهبان خاموشی سرویس: اگر وسط سشن، سرویس دسترسی خاموش شد، به‌جای
-            // سکوت (که یعنی «محافظت ادامه دارد» در حالی که ندارد) یک بار هشدار بده.
-            // با برگشتن سرویس، پرچم ریست می‌شود تا خاموشی بعدی دوباره هشدار بدهد.
-            if (!ProtectionHealth.isAccessibilityEnabled(this@SessionForegroundService)) {
-                if (!alertShown) {
-                    alertShown = true
-                    PrefsManager.recordProtectionFailure(this@SessionForegroundService, "accessibility-disabled-during-session")
-                    notifyAlert()
+            try {
+                val s = SessionManager.activeSession(this@SessionForegroundService)
+                if (s == null) { stopSelf(); return }
+                notify(buildNotification(s))
+                SessionWidgetUpdater.updateAll(this@SessionForegroundService)
+                // اگر ویجت وسط سشن نصب شده باشد، تیک زنده‌اش را حداکثر تا ۳۰ ثانیه‌ی
+                // دیگر راه بینداز (شروع سشن، ویجتی نداشت که تیکش را روشن کند).
+                startWidgetTicker()
+                // نگهبان خاموشی سرویس: اگر وسط سشن، سرویس دسترسی خاموش شد، به‌جای
+                // سکوت (که یعنی «محافظت ادامه دارد» در حالی که ندارد) یک بار هشدار بده.
+                // با برگشتن سرویس، پرچم ریست می‌شود تا خاموشی بعدی دوباره هشدار بدهد.
+                if (!ProtectionHealth.isAccessibilityEnabled(this@SessionForegroundService)) {
+                    if (!alertShown) {
+                        alertShown = true
+                        PrefsManager.recordProtectionFailure(this@SessionForegroundService, "accessibility-disabled-during-session")
+                        notifyAlert()
+                    }
+                } else {
+                    alertShown = false
                 }
-            } else {
-                alertShown = false
+            } catch (e: Exception) {
+                // تیکر ۳۰ ثانیه‌ای: استثنا نباید فرایند را بکشد؛ تیک بعدی ادامه می‌دهد.
+                try {
+                    PrefsManager.recordProtectionFailure(this@SessionForegroundService, "fgs_ticker_error")
+                } catch (ignored: Exception) {
+                }
             }
             handler.postDelayed(this, 30_000L)
         }
@@ -100,6 +124,11 @@ class SessionForegroundService : Service() {
             startForeground(NOTIF_ID, notif)
         }
         running = true
+        // تشخیص شروع سرویس برای صفحه‌ی سلامت (زمان + شمارنده؛ بدون محتوای صفحه).
+        try {
+            PrefsManager.recordServiceStart(this)
+        } catch (ignored: Exception) {
+        }
         handler.removeCallbacks(ticker)
         handler.postDelayed(ticker, 30_000L)
         SessionWidgetUpdater.updateAll(this)

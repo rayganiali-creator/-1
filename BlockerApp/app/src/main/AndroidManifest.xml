@@ -38,6 +38,8 @@
         <activity android:name=".ui.ReportsActivity" android:exported="false" android:label="گزارش‌ها" />
         <activity android:name=".ui.BackupActivity" android:exported="false" android:label="بکاپ و بازیابی" />
         <activity android:name=".ui.SettingsActivity" android:exported="false" android:label="تنظیمات" />
+        <activity android:name=".ui.AiSettingsActivity" android:exported="false" android:label="هوش روی دستگاه" />
+        <activity android:name=".ui.AiTestActivity" android:exported="false" android:label="آزمایش نیت" />
         <activity android:name=".ui.OnboardingActivity" android:exported="false" android:label="راه‌اندازی" />
         <activity android:name=".ui.AboutActivity" android:exported="false" android:label="درباره و محدودیت‌ها" />
         <!-- ریکاوری اضطراری exported است تا حتی با adb هم باز شود: am start -n com.example.blocker/.ui.RecoveryActivity -->

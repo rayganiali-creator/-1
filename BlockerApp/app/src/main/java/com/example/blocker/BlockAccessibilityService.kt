@@ -9,6 +9,9 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import com.example.blocker.core.SemanticEngine
+import com.example.blocker.core.AiEngine
+import com.example.blocker.core.AiVerdict
+import com.example.blocker.core.DecisionCache
 import com.example.blocker.core.KeywordRule
 import com.example.blocker.core.KeywordScope
 import com.example.blocker.core.OwnAppGuard
@@ -80,6 +83,8 @@ class BlockAccessibilityService : AccessibilityService() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val pendingBlocks = PendingBlockManager()
+    /** کش تصمیم‌های معنایی برای این سرویس (محدود، با انقضا؛ متن خام نگه نمی‌دارد). */
+    private val aiDecisionCache = DecisionCache()
     private var pendingRunnable: Runnable? = null
     private var lastBlockedSignature: String = ""
     private var lastBlockedTime: Long = 0L
@@ -132,15 +137,17 @@ class BlockAccessibilityService : AccessibilityService() {
         if (event == null) return
         val packageName = event.packageName?.toString() ?: return
         if (packageName == this.packageName) return
-        heartbeat()
-        maybeCheckSession()
-        // نگهبان پنجره‌ی خودمان: رخداد با پکیج دیگر (مثل پنجره‌ی صفحه‌کلید هنگام
-        // تایپ داخل اپ) در حالی که پنجره‌ی فعال خودِ اپ است، نباید باعث خواندن
-        // متن خودِ اپ و بلاک آن شود.
-        val activeWindowPackage = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
-        if (OwnAppGuard.shouldSkip(packageName, activeWindowPackage, this.packageName)) return
-
+        // heartbeat و بررسی سشن بیرون از try اصلی بودند؛ استثنای نادر آن‌ها
+        // سرویس را می‌کشت. حالا همه‌ی پردازش رخداد زیر یک چتر است.
         try {
+            heartbeat()
+            maybeCheckSession()
+            // نگهبان پنجره‌ی خودمان: رخداد با پکیج دیگر (مثل پنجره‌ی صفحه‌کلید هنگام
+            // تایپ داخل اپ) در حالی که پنجره‌ی فعال خودِ اپ است، نباید باعث خواندن
+            // متن خودِ اپ و بلاک آن شود.
+            val activeWindowPackage = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
+            if (OwnAppGuard.shouldSkip(packageName, activeWindowPackage, this.packageName)) return
+
             if (checkSelfProtection(packageName)) return
             val config = effectiveConfig()
             val candidate = findCandidate(packageName, config)
@@ -166,7 +173,15 @@ class BlockAccessibilityService : AccessibilityService() {
             }
             cancelPendingRunnable()
             val delayMs = (pending.fireAtMillis - System.currentTimeMillis()).coerceAtLeast(0L)
-            val runnable = Runnable { revalidateAndFire(candidate, config) }
+            // بدنه‌ی runnable هم زیر چتر است؛ استثنای نادرِ لحظه‌ی اجرا نباید
+            // نخ اصلی و با آن کل فرایند را بکشد.
+            val runnable = Runnable {
+                try {
+                    revalidateAndFire(candidate, config)
+                } catch (e: Exception) {
+                    Log.e(TAG, "error while firing pending block", e)
+                }
+            }
             pendingRunnable = runnable
             handler.postDelayed(runnable, delayMs)
         } catch (e: Exception) {
@@ -319,27 +334,34 @@ class BlockAccessibilityService : AccessibilityService() {
                     }
                 }
             }
-            // ۳) بلاک کلمه‌کلیدی با موتور معنایی روی دستگاه (ریشه‌یابی + فازی +
-            // خوشه‌ی موضوعی + جریمه‌ی زمینه‌ی ترک) و اجازه‌های آموخته‌شده — فقط روی
-            // متنِ ورودی (جستجو/نوار آدرس) و متن محتوای غیرلیستی؛ متن داخل لیست‌ها
-            // (تاریخچه، پیشنهادها، فید) به‌تنهایی بلاک نمی‌کند.
+            // ۳) بلاک کلمه‌کلیدی با خط لوله‌ی تصمیم روی دستگاه (پیش‌فیلتر قطعی +
+            // طبقه‌بندی معنایی + سیاست آستانه + کش + بازگشت امن) و اجازه‌های
+            // آموخته‌شده — فقط روی متنِ ورودی (جستجو/نوار آدرس) و متن محتوای
+            // غیرلیستی؛ متن داخل لیست‌ها (تاریخچه، پیشنهادها، فید) به‌تنهایی بلاک نمی‌کند.
             if (config.rules.isNotEmpty()) {
                 val inputText = StringBuilder()
                 val contentText = StringBuilder()
                 collectScopedText(root, inputText, contentText, inList = false, maxNodes = 400)
                 val scopedText = inputText.toString() + " " + contentText.toString()
-                val match = SemanticEngine.firstSemanticMatch(
-                    config.rules, scopedText, packageName, PrefsManager.getLearnedAllow(this)
+                val decision = AiEngine.classify(
+                    config.rules, scopedText, packageName,
+                    PrefsManager.getLearnedAllow(this),
+                    PrefsManager.getDecisionPolicy(this),
+                    PrefsManager.isAiEnabled(this),
+                    aiDecisionCache,
+                    System.currentTimeMillis()
                 )
-                if (match != null) {
+                // شمارنده‌ها: فقط طبقه‌بندی‌های تازه (نه از کش)؛ متن هرگز ذخیره نمی‌شود.
+                PrefsManager.recordAiDecision(this, decision)
+                if (decision.verdict == AiVerdict.BLOCK && decision.rule != null) {
                     return Candidate(
-                        "keyword:${match.rule.id}",
-                        "keyword:${match.rule.text}",
+                        "keyword:${decision.rule.id}",
+                        "keyword:${decision.rule.text}",
                         "این صفحه به دلیل شامل بودن یک کلمه‌ی مسدود شده، بسته شد.",
                         packageName,
-                        match.rule.effectiveDelaySeconds(config.delaySeconds),
-                        match.rule.id,
-                        match.evidence
+                        decision.rule.effectiveDelaySeconds(config.delaySeconds),
+                        decision.rule.id,
+                        decision.evidence
                     )
                 }
             }

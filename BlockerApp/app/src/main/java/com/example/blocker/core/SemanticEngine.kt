@@ -27,6 +27,8 @@ package com.example.blocker.core
 object SemanticEngine {
 
     const val THRESHOLD = 1.0
+    /** تلرانس مقایسه‌ی امتیازها: ۱٫۶−۰٫۴ در اعشار دودویی دقیقاً ۱٫۲ نیست. */
+    private const val EPS = 1e-9
     private const val EXACT_SCORE = 1.0
     private const val FUZZY_D1_SCORE = 1.0
     private const val FUZZY_D2_SCORE = 0.7
@@ -36,7 +38,13 @@ object SemanticEngine {
     private const val MIN_FUZZY_LEN = 4
     private const val MIN_STEM_LEN = 3
 
-    data class ScoreResult(val rule: KeywordRule, val score: Double, val evidence: String)
+    data class ScoreResult(
+        val rule: KeywordRule,
+        val score: Double,
+        val evidence: String,
+        /** true یعنی تطبیق قطعی (ریشه‌ی دقیق یا عبارت دقیق) — سیاست آستانه روی آن اثر ندارد. */
+        val exact: Boolean = false
+    )
 
     /** پسوندهای فارسی برای ریشه‌یابی سبک؛ در هر تکرار بلندترین تطبیق اول امتحان می‌شود.
      * «ایم» و «اید» عمداً بیرون‌اند: در «کتابهایم» (= کتاب + ها + ی + م) چسبیدن
@@ -68,10 +76,20 @@ object SemanticEngine {
     )
 
     private val clusterStems: List<Set<String>> by lazy {
-        CLUSTERS.map { cluster -> cluster.map { stem(TextNormalizer.normalize(it)) }.toSet() }
+        // ورودی‌های چندکلمه‌ای («بخت‌آزمایی») اول به توکن شکسته می‌شوند، وگرنه
+        // ریشه‌ی رشته‌ی کامل با فاصله هیچ‌وقت با ریشه‌ی یک توکن برابر نمی‌شود.
+        CLUSTERS.map { cluster ->
+            cluster.flatMap { tokenize(TextNormalizer.normalize(it)) }.map { stem(it) }.toSet()
+        }
     }
     private val recoveryStems: Set<String> by lazy {
-        RECOVERY_WORDS.map { stem(TextNormalizer.normalize(it)) }.toSet()
+        RECOVERY_WORDS.flatMap { tokenize(TextNormalizer.normalize(it)) }.map { stem(it) }.toSet()
+    }
+
+    /** آیا متن، کلمه‌ی زمینه‌ی ترک/درمان دارد (برای راهنمای صفحه‌ی آزمایش). */
+    fun hasRecoveryContext(rawText: String): Boolean {
+        val stems = tokenize(TextNormalizer.normalize(rawText)).map { stem(it) }
+        return stems.any { it in recoveryStems }
     }
 
     /** کلید یادگیری: «شناسه‌ی قانون | ریشه‌ی عبارت» — برای اجازه‌های آموخته‌شده. */
@@ -137,15 +155,18 @@ object SemanticEngine {
         stems: List<String>,
         normalizedText: String,
         recoveryCount: Int,
-        learned: Set<String>
+        learned: Set<String>,
+        minScore: Double
     ): ScoreResult? {
         val needle = TextNormalizer.normalize(rule.text.trim())
         if (needle.isEmpty()) return null
         // قانون چندکلمه‌ای (عبارت): مثل قبل، تطبیق دقیق مرزی؛ بدون گسترش معنایی.
+        // تطبیق قطعی همیشه برمی‌گردد (حتی زیر کف سیاست) تا خط لوله با آستانه‌ی
+        // ۱٫۰ خودش تصمیم بگیرد؛ کف سیاست فقط روی شواهد معنایی اثر دارد.
         if (needle.contains(' ')) {
             val exact = KeywordMatcher.match(rule, normalizedText) ?: return null
             val score = EXACT_SCORE - RECOVERY_PENALTY * minOf(recoveryCount, 2)
-            return if (score >= THRESHOLD) ScoreResult(rule, score, exact.matchedText) else null
+            return ScoreResult(rule, score, exact.matchedText, exact = true)
         }
         val ruleStem = stem(needle)
         if (ruleStem.isEmpty()) return null
@@ -154,11 +175,13 @@ object SemanticEngine {
         if (kept.isEmpty()) return null
         var base = 0.0
         var evidence = rule.text
+        var strong = false
         // ۱) ریشه‌ی دقیق
         val exactIdx = kept.firstOrNull { stems[it] == ruleStem }
         if (exactIdx != null) {
             base = EXACT_SCORE
             evidence = tokens[exactIdx]
+            strong = true
         } else {
             // ۲) فازی: فقط کلمات ۴ حرف به بالا، فاصله‌ی ۱ = قطعی، ۲ = نیم‌امتیاز.
             var bestDist = Int.MAX_VALUE
@@ -175,7 +198,9 @@ object SemanticEngine {
             }
             if (bestIdx != null) {
                 when (bestDist) {
-                    1 -> { base = FUZZY_D1_SCORE; evidence = tokens[bestIdx] }
+                    // فاصله‌ی ۱ روی کلمه‌ی ۴ حرف به بالا شواهد قوی است (غلط تایپی)،
+                    // نه زمینه‌ی مبهم؛ مثل تطبیق قطعی با آن رفتار می‌شود.
+                    1 -> { base = FUZZY_D1_SCORE; evidence = tokens[bestIdx]; strong = true }
                     2 -> { base = FUZZY_D2_SCORE; evidence = tokens[bestIdx] }
                 }
             }
@@ -186,20 +211,26 @@ object SemanticEngine {
             if (stems[idx] in related) tokens[idx] else null
         }.distinct()
         val score = base + RELATED_SCORE * relatedTokens.size - RECOVERY_PENALTY * minOf(recoveryCount, 2)
-        if (score < THRESHOLD) return null
         if (base == 0.0 && relatedTokens.isNotEmpty()) evidence = relatedTokens.first()
-        return ScoreResult(rule, score, evidence)
+        // تطبیق قوی (ریشه‌ی دقیق یا فازی فاصله‌ی ۱) همیشه برمی‌گردد تا خط لوله
+        // با آستانه‌ی قطعی ۱٫۰ تصمیم بگیرد؛ کف سیاست فقط شواهد معنایی را فیلتر می‌کند.
+        if (strong) return ScoreResult(rule, score, evidence, exact = true)
+        if (score + EPS < minScore) return null
+        return ScoreResult(rule, score, evidence, exact = false)
     }
 
     /**
      * اولین قانون بلاکی که با امتیاز کافی روی متن صدق می‌کند؛ مثل قبل، اگر هر
      * قانون allow با امتیاز کافی صدق کند، نتیجه null است (اجازه بر بلاک غلبه می‌کند).
+     * [minScore] کف امتیاز است (پیش‌فرض ۱٫۰)؛ خط لوله‌ی سیاست آن را پایین‌تر
+     * می‌آورد تا نتایج «مشکوک» هم برگردند و UNCERTAIN ثبت شوند.
      */
     fun firstSemanticMatch(
         rules: List<KeywordRule>,
         rawText: String,
         packageName: String? = null,
-        learned: Set<String> = emptySet()
+        learned: Set<String> = emptySet(),
+        minScore: Double = THRESHOLD
     ): ScoreResult? {
         val normalized = TextNormalizer.normalize(rawText.take(MAX_TEXT_CHARS))
         if (normalized.isEmpty()) return null
@@ -211,13 +242,15 @@ object SemanticEngine {
             r.enabled && (r.targetPackages.isEmpty() || (packageName != null && packageName in r.targetPackages))
         }
         for (rule in applicable) {
-            if (rule.isAllow && scoreRule(rule, tokens, stems, normalized, recoveryCount, learned) != null) {
+            // وتوی allow همیشه به شواهد واقعی (≥ ۱٫۰) نیاز دارد؛ سیگنال ضعیفِ
+            // یک قانون اجازه نباید بلاکِ قوی را خنثی کند.
+            if (rule.isAllow && scoreRule(rule, tokens, stems, normalized, recoveryCount, learned, THRESHOLD) != null) {
                 return null
             }
         }
         for (rule in applicable) {
             if (!rule.isAllow) {
-                scoreRule(rule, tokens, stems, normalized, recoveryCount, learned)?.let { return it }
+                scoreRule(rule, tokens, stems, normalized, recoveryCount, learned, minScore)?.let { return it }
             }
         }
         return null

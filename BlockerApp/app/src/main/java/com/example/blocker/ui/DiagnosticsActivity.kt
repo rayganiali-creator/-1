@@ -1,5 +1,6 @@
 package com.example.blocker.ui
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -57,6 +58,48 @@ class DiagnosticsActivity : AppCompatActivity() {
                 }
             })
         }
+
+        // تداوم سرویس و پس‌زمینه — فقط زمان‌ها و وضعیت‌ها؛ هیچ محتوای صفحه‌ای ثبت نمی‌شود.
+        column.addView(UiKit.card(this) { c ->
+            c.addView(UiKit.title(this, "تداوم سرویس و پس‌زمینه", 17f))
+            val a11y = ProtectionHealth.isAccessibilityEnabled(this)
+            c.addView(UiKit.body(this, "سرویس دسترسی: " + if (a11y) "فعال ✓" else "خاموش ✗ — بلاک اجرا نمی‌شود"))
+            val fgsRunning = com.example.blocker.service.SessionForegroundService.running
+            val session = com.example.blocker.session.SessionManager.activeSession(this)
+            c.addView(UiKit.body(this, "سرویس پیش‌زمینه (تایمر سشن): " + if (fgsRunning) "در حال اجرا ✓" else "در حال اجرا نیست"))
+            if (session != null && !fgsRunning) {
+                c.addView(UiKit.body(this, "سشنی فعال است ولی سرویس پیش‌زمینه نیست؛ با باز شدن برنامه دوباره روشن می‌شود (و نوتیفیکیشن و ویجت برمی‌گردند).", 13f))
+            }
+            val batteryOk = (getSystemService(Context.POWER_SERVICE) as android.os.PowerManager)
+                .isIgnoringBatteryOptimizations(packageName)
+            c.addView(UiKit.body(this, "معافیت باتری: " + if (batteryOk) "فعال ✓" else "فعال نیست — سامسونگ ممکن است بعد از ساعت‌ها سرویس را متوقف کند"))
+            val diag = PrefsManager.getServiceDiagnostics(this)
+            fun fmt(t: Long): String = if (t > 0) {
+                SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(t))
+            } else "هنوز ثبت نشده"
+            c.addView(UiKit.body(this, "آخرین فعالیت سرویس دسترسی: " + fmt(diag.lastHeartbeatMillis), 13f))
+            c.addView(UiKit.body(this, "آخرین شروع سرویس پیش‌زمینه: " + fmt(diag.lastServiceStartMillis) +
+                " (تعداد شروع‌ها: ${diag.serviceStartCount})", 13f))
+            c.addView(UiKit.body(this,
+                "توضیح صادقانه: Force Stop دستی، لغو دسترسی، یا حذف برنامه را هیچ سروسی نمی‌تواند دور بزند؛ " +
+                "در آن حالت‌ها فقط باز کردن دوباره‌ی «سد» محافظت را برمی‌گرداند. مرگ فرایند توسط سیستم (بدون Force Stop) " +
+                "با بازگشت به برنامه یا رویداد بوت/زمان‌بندی ترمیم می‌شود.", 12f))
+            if (Build.MANUFACTURER?.equals("samsung", ignoreCase = true) == true) {
+                c.addView(UiKit.body(this, "نکته‌ی سامسونگ: علاوه بر معافیت باتری، «سد» را به Never sleeping apps اضافه کن و در برنامه‌های اخیر رویش قفل بگذار.", 12f))
+            }
+            c.addView(UiKit.tonalButton(this, "تعمیر دسترسی‌ها") {
+                startActivity(Intent(this, OnboardingActivity::class.java).apply {
+                    putExtra(OnboardingActivity.EXTRA_REPAIR, true)
+                })
+            })
+            if (!batteryOk) {
+                c.addView(UiKit.tonalButton(this, "درخواست معافیت باتری") {
+                    try {
+                        startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+                    } catch (e: Exception) { openAppSettings() }
+                })
+            }
+        })
         column.addView(UiKit.primaryButton(this, "اجرای دوباره‌ی تشخیص") { render() })
     }
 

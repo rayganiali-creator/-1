@@ -5,6 +5,10 @@ import android.content.SharedPreferences
 import com.example.blocker.core.BlockingDelays
 import com.example.blocker.core.CoolingOff
 import com.example.blocker.core.FocusProfile
+import com.example.blocker.core.AiDecision
+import com.example.blocker.core.AiIntention
+import com.example.blocker.core.AiVerdict
+import com.example.blocker.core.DecisionPolicy
 import com.example.blocker.core.KeywordRule
 import com.example.blocker.core.RuleDelays
 import com.example.blocker.core.SemanticEngine
@@ -38,10 +42,15 @@ object PrefsManager {
     private const val KEY_ONBOARDING_DONE = "onboarding_done"
     private const val KEY_WIDGET_PROMPT_NEVER = "widget_prompt_never"
     private const val KEY_ONBOARDING_STEP = "onboarding_step"
+    private const val KEY_ONBOARDING_SKIPPED = "onboarding_skipped_steps"
     private const val KEY_LAST_DIAGNOSTIC = "last_diagnostic_at"
     private const val KEY_SELF_PROTECTION = "self_protection_enabled"
     /** اجازه‌های آموخته‌شده از بازخورد «این بلاک اشتباه بود»: «شناسه‌ی قانون|ریشه‌ی عبارت». */
     private const val KEY_LEARNED_ALLOW = "learned_allow_v1"
+    private const val KEY_AI_ENABLED = "ai_enabled"
+    private const val KEY_DECISION_POLICY = "ai_decision_policy"
+    private const val KEY_AI_LAST_ERROR = "ai_last_error"
+    private const val KEY_AI_INTENTION_JSON = "ai_intention_json"
     private const val KEY_THEME = "theme"
     private const val KEY_BLOCKED_BG = "blocked_bg"
 
@@ -148,6 +157,93 @@ object PrefsManager {
         }
     }
 
+    // ---------- هوش روی دستگاه: سیاست، شمارنده‌ها، نیت، آخرین خطا ----------
+    fun isAiEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_AI_ENABLED, true)
+
+    fun setAiEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_AI_ENABLED, enabled).apply()
+    }
+
+    fun getDecisionPolicy(context: Context): DecisionPolicy =
+        DecisionPolicy.fromName(prefs(context).getString(KEY_DECISION_POLICY, null))
+
+    fun setDecisionPolicy(context: Context, policy: DecisionPolicy) {
+        prefs(context).edit().putString(KEY_DECISION_POLICY, policy.name).apply()
+    }
+
+    /** شمارنده‌های طبقه‌بندی — فقط عدد و دلیل، هرگز متن صفحه. */
+    data class AiCounts(
+        val classifications: Int,
+        val blocks: Int,
+        val allows: Int,
+        val uncertain: Int
+    )
+
+    fun getAiCounts(context: Context): AiCounts {
+        val o = getReportCounters(context)
+        return AiCounts(
+            o.optInt("aiClassifications"),
+            o.optInt("aiBlocks"),
+            o.optInt("aiAllows"),
+            o.optInt("aiUncertain")
+        )
+    }
+
+    /** فقط طبقه‌بندی‌های تازه (نه از کش) شمرده می‌شوند تا عدد، کار واقعی را نشان بدهد. */
+    fun recordAiDecision(context: Context, decision: AiDecision) {
+        if (decision.fromCache) return
+        mutateReports(context) {
+            it.put("aiClassifications", it.optInt("aiClassifications") + 1)
+            when (decision.verdict) {
+                AiVerdict.BLOCK -> it.put("aiBlocks", it.optInt("aiBlocks") + 1)
+                AiVerdict.ALLOW -> it.put("aiAllows", it.optInt("aiAllows") + 1)
+                AiVerdict.UNCERTAIN -> it.put("aiUncertain", it.optInt("aiUncertain") + 1)
+            }
+        }
+        decision.error?.let { err ->
+            prefs(context).edit().putString(KEY_AI_LAST_ERROR, err.take(200)).apply()
+        }
+    }
+
+    fun getAiLastError(context: Context): String? =
+        prefs(context).getString(KEY_AI_LAST_ERROR, null)
+
+    fun getAiIntention(context: Context): AiIntention {
+        val json = prefs(context).getString(KEY_AI_INTENTION_JSON, null) ?: return AiIntention()
+        return AiIntention.fromJsonString(json)
+    }
+
+    fun setAiIntention(context: Context, intention: AiIntention) {
+        prefs(context).edit().putString(KEY_AI_INTENTION_JSON, intention.toJsonString()).apply()
+    }
+
+    // ---------- تشخیص سرویس (فایل جدا؛ فقط زمان‌ها و شمارنده‌ها، بدون محتوای صفحه) ----------
+    private fun diagPrefs(context: Context): SharedPreferences =
+        context.applicationContext.getSharedPreferences("blocker_diag", Context.MODE_PRIVATE)
+
+    fun recordServiceStart(context: Context) {
+        diagPrefs(context).edit()
+            .putLong("service_last_start", System.currentTimeMillis())
+            .putInt("service_start_count", diagPrefs(context).getInt("service_start_count", 0) + 1)
+            .apply()
+    }
+
+    data class ServiceDiagnostics(
+        val lastHeartbeatMillis: Long,
+        val lastServiceStartMillis: Long,
+        val serviceStartCount: Int
+    )
+
+    fun getServiceDiagnostics(context: Context): ServiceDiagnostics {
+        val d = diagPrefs(context)
+        return ServiceDiagnostics(
+            d.getLong("a11y_last_seen", 0L),
+            d.getLong("service_last_start", 0L),
+            d.getInt("service_start_count", 0)
+        )
+    }
+
     fun ruleToJson(r: KeywordRule): JSONObject = JSONObject().apply {
         put("id", r.id); put("text", r.text); put("category", r.category)
         put("enabled", r.enabled); put("wholeWord", r.wholeWord)
@@ -219,6 +315,20 @@ object PrefsManager {
     fun setWidgetPromptNever(context: Context, never: Boolean) { prefs(context).edit().putBoolean(KEY_WIDGET_PROMPT_NEVER, never).apply() }
     fun getOnboardingStep(context: Context): Int = prefs(context).getInt(KEY_ONBOARDING_STEP, 0)
     fun setOnboardingStep(context: Context, step: Int) { prefs(context).edit().putInt(KEY_ONBOARDING_STEP, step).apply() }
+
+    /** قدم‌های اختیاری که کاربر رد کرده (تصمیم او؛ با باز کردن دوباره‌ی قدم از فهرست پاک می‌شود). */
+    fun getSkippedOnboardingSteps(context: Context): Set<String> =
+        HashSet(prefs(context).getStringSet(KEY_ONBOARDING_SKIPPED, emptySet()) ?: emptySet())
+
+    fun addSkippedOnboardingStep(context: Context, stepId: String) {
+        val set = getSkippedOnboardingSteps(context).toMutableSet()
+        if (set.add(stepId)) prefs(context).edit().putStringSet(KEY_ONBOARDING_SKIPPED, set).apply()
+    }
+
+    fun removeSkippedOnboardingStep(context: Context, stepId: String) {
+        val set = getSkippedOnboardingSteps(context).toMutableSet()
+        if (set.remove(stepId)) prefs(context).edit().putStringSet(KEY_ONBOARDING_SKIPPED, set).apply()
+    }
     fun getLastDiagnosticAt(context: Context): Long = prefs(context).getLong(KEY_LAST_DIAGNOSTIC, 0L)
     fun setLastDiagnosticAt(context: Context, at: Long) { prefs(context).edit().putLong(KEY_LAST_DIAGNOSTIC, at).apply() }
 
