@@ -164,35 +164,16 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
-        // کارت سشن
+        // حلقه‌ی سشن موکاپ: بزرگ و بدون کارت دورش؛ وقتی سشنی نیست کارت شروع سریع می‌آید.
         if (session != null) {
             val remaining = SessionManager.remainingMillis(this, session)
             val fraction = if (session.durationMillis > 0) (remaining.toFloat() / session.durationMillis.toFloat()) else 0f
-            column.addView(UiKit.card(this) { c ->
-                c.addView(UiKit.title(this,
-                    if (session.mode == SessionMode.STRICT) "سشن Strict فعال" else "سشن فعال", 18f))
-                val ring = UiKit.sessionRing(this, faDigits(UiKit.formatDuration(remaining)), fraction)
-                liveRing = ring
-                c.addView(ring)
-                // ردیف پایین کارت: چیپ پروفایل + دکمه‌ی مشاهده‌ی سشن
-                val sessionRow = LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                }
-                sessionRow.addView(UiKit.chipView(this, session.profileName, false).apply {
-                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                })
-                sessionRow.addView(View(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
-                })
-                sessionRow.addView(UiKit.textButton(this, "مشاهده‌ی سشن") {
-                    startActivity(Intent(this, SessionActivity::class.java))
-                })
-                c.addView(sessionRow)
-                if (session.status == com.example.blocker.core.SessionStatus.EXIT_PENDING) {
-                    c.addView(UiKit.body(this, "درخواست خروج ثبت شده و محافظت تا پایان آرام‌سازی برقرار است."))
-                }
-            })
+            val ring = UiKit.sessionRing(this, faDigits(UiKit.formatDuration(remaining)), fraction)
+            liveRing = ring
+            column.addView(ring)
+            if (session.status == com.example.blocker.core.SessionStatus.EXIT_PENDING) {
+                column.addView(UiKit.body(this, "درخواست خروج ثبت شده و محافظت تا پایان آرام‌سازی برقرار است."))
+            }
         } else {
             column.addView(UiKit.card(this) { c ->
                 c.addView(UiKit.title(this, "شروع سریع", 18f))
@@ -202,20 +183,35 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
-        // آمار
+        // کارت‌های آمار موکاپ: قوانین فعال، بلاک‌های امروز، سشن‌های هفته
         val rules = PrefsManager.getRules(this)
-        val appsCount = PrefsManager.getBlockedApps(this).size
-        val sitesCount = PrefsManager.getBlockedWebsites(this).size
-        column.addView(UiKit.statsPlainRow(this, listOf(
-            faDigits(rules.size.toString()) to "قانون",
-            faDigits(appsCount.toString()) to "برنامه",
-            faDigits(sitesCount.toString()) to "دامنه"
-        )))
-        column.addView(UiKit.body(this,
-            "دیلی بلاک: ${PrefsManager.getDelaySeconds(this)} ثانیه • قوانین فعال: ${rules.count { it.enabled }} از ${rules.size}", 12f))
+        val statsGrid = GridLayout(this).apply {
+            columnCount = 3
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                .apply { bottomMargin = UiKit.dp(this@MainActivity, 12) }
+        }
+        val stats = listOf(
+            Triple(R.drawable.ic_shield, "قوانین فعال", faDigits(rules.count { it.enabled }.toString())),
+            Triple(R.drawable.ic_tile_chart, "بلاک‌های امروز", faDigits(PrefsManager.getBlocksToday(this).toString())),
+            Triple(R.drawable.ic_tile_clock, "سشن‌های هفته", faDigits(PrefsManager.getSessionsLast7Days(this).toString()))
+        )
+        stats.forEachIndexed { i, (icon, label, value) ->
+            val card = UiKit.statCard(this, icon, label, value)
+            card.layoutParams = GridLayout.LayoutParams(
+                GridLayout.spec(0, 1, 1f),
+                GridLayout.spec(i, 1, 1f)
+            ).apply {
+                width = 0
+                height = ViewGroup.LayoutParams.WRAP_CONTENT
+                val m = UiKit.dp(this@MainActivity, 4)
+                setMargins(m, m, m, m)
+            }
+            statsGrid.addView(card)
+        }
+        column.addView(statsGrid)
 
-        // کاشی‌های بخش‌ها
-        column.addView(UiKit.title(this, "بخش‌ها", 18f))
+        // کاشی‌های بخش‌ها (هر ۶ بخش؛ موکاپ فقط ۳ تا نشان می‌داد ولی حذف بقیه
+        // راه دسترسی به برنامه‌ها، پروفایل‌ها، زمان‌بندی و گزارش‌ها را می‌بست.)
         val grid = GridLayout(this).apply {
             columnCount = 3
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)

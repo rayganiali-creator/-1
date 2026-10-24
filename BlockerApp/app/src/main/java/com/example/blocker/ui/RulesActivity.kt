@@ -1,6 +1,10 @@
 package com.example.blocker.ui
 
+import android.graphics.Typeface
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -19,6 +23,23 @@ class RulesActivity : AppCompatActivity() {
 
     private lateinit var column: LinearLayout
     private var locked: Boolean = false
+    private var searchQuery = ""
+    private val ruleCardViews = mutableListOf<Pair<KeywordRule, View>>()
+
+    private fun faDigits(s: String): String {
+        val fa = charArrayOf('۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹')
+        return s.map { if (it in '0'..'9') fa[it - '0'] else it }.joinToString("")
+    }
+
+    /** فیلتر کارت‌های قانون بر اساس جستجو، بدون بازسازی صفحه (تا فوکوس فیلد نپرد). */
+    private fun applyRuleFilter() {
+        val q = searchQuery.trim()
+        ruleCardViews.forEach { (rule, view) ->
+            view.visibility = if (q.isEmpty() || rule.text.contains(q, ignoreCase = true) ||
+                rule.category.contains(q, ignoreCase = true)
+            ) View.VISIBLE else View.GONE
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,28 +66,58 @@ class RulesActivity : AppCompatActivity() {
             })
         }
 
-        column.addView(UiKit.title(this, "کلمات و عبارات", 19f))
+        column.addView(UiKit.title(this, "قوانین", 22f))
+        val search = UiKit.textField(this, "جستجوی قانون")
+        search.setText(searchQuery)
+        search.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                searchQuery = s?.toString() ?: ""
+                applyRuleFilter()
+            }
+        })
+        column.addView(search)
         column.addView(UiKit.body(this, "کلمه فقط وقتی بلاک می‌شود که آن را جستجو کنی (جعبه‌ی جستجو یا نوار آدرس) یا در متن صفحه باشد؛ صرفِ دیده شدن در لیست تاریخچه یا پیشنهادها بلاک نمی‌کند. کلمات همیشه به‌صورت کلمه‌ی کامل تطبیق داده می‌شوند؛ «فوت» روی «فوتبال» صدق نمی‌کند. قوانین فقط وسط سشن اعمال می‌شوند. با کلید کنار هر قانون می‌توانی آن را موقتاً خاموش کنی."))
         val rules = PrefsManager.getRules(this)
         if (rules.isEmpty()) column.addView(UiKit.card(this) { c ->
             c.addView(UiKit.body(this, "هنوز قانونی ثبت نشده است. اولین کلمه را اضافه کن تا سد جلویش را بگیرد."))
         })
+        ruleCardViews.clear()
         rules.forEach { rule ->
-            column.addView(UiKit.card(this) { c ->
+            val cardView = UiKit.card(this) { c ->
+                // ردیف عنوان + کلید (موکاپ: عنوان درشت، کلید سمت چپ)
+                val titleRow = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                }
+                titleRow.addView(TextView(this).apply {
+                    text = rule.text
+                    textSize = 18f
+                    setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(ThemePalette.resolve(this@RulesActivity).onSurface)
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                })
                 val sw = SwitchMaterial(this).apply {
                     isChecked = rule.enabled
-                    text = rule.text
-                    textSize = 16f
                     isEnabled = !locked
                     setOnCheckedChangeListener { _, checked ->
                         if (!guardLocked()) PrefsManager.updateRule(this@RulesActivity, rule.copy(enabled = checked))
                     }
                 }
-                c.addView(sw)
-                val chipsRow1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-                chipsRow1.addView(UiKit.miniChip(this, rule.category))
-                chipsRow1.addView(UiKit.miniChip(this, "تأخیر: ${RuleDelays.labelFa(rule.delaySeconds)}"))
-                c.addView(chipsRow1)
+                titleRow.addView(sw)
+                c.addView(titleRow)
+                // ردیف چیپ‌های موکاپ: کل کلمه، تأخیر، دسته‌بندی
+                val chipsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                chipsRow.addView(UiKit.miniChip(this, "کل کلمه"))
+                val delayChip = when (rule.delaySeconds) {
+                    RuleDelays.FOLLOW_GLOBAL -> "دیلی سراسری"
+                    0 -> "فوری"
+                    else -> "تأخیر ${faDigits(rule.delaySeconds.toString())} ثانیه"
+                }
+                chipsRow.addView(UiKit.miniChip(this, delayChip))
+                chipsRow.addView(UiKit.miniChip(this, rule.category))
+                c.addView(chipsRow)
                 val optional = mutableListOf<String>()
                 if (rule.caseSensitive) optional.add("حساس به بزرگی حروف")
                 if (rule.isAllow) optional.add("قانون اجازه")
@@ -87,9 +138,12 @@ class RulesActivity : AppCompatActivity() {
                     }
                 }.apply { isEnabled = !locked })
                 c.addView(btns)
-            })
+            }
+            ruleCardViews.add(rule to cardView)
+            column.addView(cardView)
         }
-        column.addView(UiKit.primaryButton(this, "＋ افزودن قانون") {
+        applyRuleFilter()
+        column.addView(UiKit.primaryButton(this, "قانون جدید") {
             if (!guardLocked()) showRuleDialog(null)
         })
 

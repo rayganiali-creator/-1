@@ -2,12 +2,14 @@ package com.example.blocker.ui
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.widget.ArrayAdapter
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
@@ -15,6 +17,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.blocker.PrefsManager
+import com.example.blocker.R
 import com.example.blocker.core.CoolingOff
 import com.example.blocker.core.DurationRange
 import com.example.blocker.core.FocusProfile
@@ -35,7 +38,7 @@ class SessionActivity : AppCompatActivity() {
     private lateinit var column: LinearLayout
     private val handler = Handler(Looper.getMainLooper())
     private var ticking = false
-    private var remainingView: TextView? = null
+    private var liveRing: UiKit.LiveRingView? = null
     private var exitInfoView: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,7 +68,9 @@ class SessionActivity : AppCompatActivity() {
                 if (!ticking) return
                 val s = SessionManager.activeSession(this@SessionActivity)
                 if (s == null) { render(); return }
-                remainingView?.text = UiKit.formatDuration(SessionManager.remainingMillis(this@SessionActivity, s))
+                val rem = SessionManager.remainingMillis(this@SessionActivity, s)
+                val frac = if (s.durationMillis > 0) rem.toFloat() / s.durationMillis.toFloat() else 0f
+                liveRing?.update(frac, faDigits(UiKit.formatDuration(rem)))
                 if (s.status == SessionStatus.EXIT_PENDING) {
                     val left = s.exitDeadlineWallMillis - System.currentTimeMillis()
                     exitInfoView?.text = if (left > 0)
@@ -90,46 +95,69 @@ class SessionActivity : AppCompatActivity() {
 
     private fun render() {
         column.removeAllViews()
-        remainingView = null; exitInfoView = null
+        liveRing = null; exitInfoView = null
         val active = SessionManager.activeSession(this)
         if (active != null) renderActive(active) else renderCreate()
     }
 
-    // ---------- سشن فعال ----------
+    // ---------- سشن فعال (موکاپ: حلقه‌ی بزرگ + قرص Strict + کارت شروع/پایان) ----------
     private fun renderActive(s: SessionRecord) {
+        column.addView(UiKit.title(this, "سشن فعال", 22f))
+        val remaining = SessionManager.remainingMillis(this, s)
+        val fraction = if (s.durationMillis > 0) remaining.toFloat() / s.durationMillis.toFloat() else 0f
+        val ring = UiKit.sessionRing(this, faDigits(UiKit.formatDuration(remaining)), fraction)
+        liveRing = ring
+        column.addView(ring)
+        if (s.mode == SessionMode.STRICT) {
+            // قرص Strict موکاپ: خط نعنایی + نقطه + متن
+            val palette = ThemePalette.resolve(this)
+            val pill = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = UiKit.dp(this@SessionActivity, 24).toFloat()
+                    setColor(palette.tile)
+                    setStroke(UiKit.dp(this@SessionActivity, 1), palette.accent)
+                }
+                val p = UiKit.dp(this@SessionActivity, 12)
+                setPadding(p, UiKit.dp(this@SessionActivity, 6), p, UiKit.dp(this@SessionActivity, 6))
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                    gravity = android.view.Gravity.CENTER_HORIZONTAL
+                    bottomMargin = UiKit.dp(this@SessionActivity, 12)
+                }
+            }
+            pill.addView(View(this).apply {
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    setColor(palette.accent)
+                }
+                layoutParams = LinearLayout.LayoutParams(UiKit.dp(this@SessionActivity, 8), UiKit.dp(this@SessionActivity, 8)).apply {
+                    marginEnd = UiKit.dp(this@SessionActivity, 8)
+                }
+            })
+            pill.addView(TextView(this).apply {
+                text = "Strict"
+                textSize = 13f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(palette.accent)
+            })
+            column.addView(pill)
+        }
         column.addView(UiKit.card(this) { c ->
-            c.addView(UiKit.title(this, if (s.mode == SessionMode.STRICT) "سشن Strict فعال است" else "سشن فعال است", 20f))
-            val rem = TextView(this).apply {
-                text = UiKit.formatDuration(SessionManager.remainingMillis(this@SessionActivity, s))
-                textSize = 40f
-                gravity = android.view.Gravity.CENTER
-                setTextColor(ThemePalette.resolve(this@SessionActivity).onSurface)
-            }
-            remainingView = rem
-            c.addView(rem)
-            c.addView(UiKit.body(this, "شروع ${faDigits(timeFa(s.startWallMillis))} — پایان ${faDigits(timeFa(s.endWallMillis))}"))
-            c.addView(UiKit.body(this, "پروفایل: ${s.profileName}"))
-            c.addView(UiKit.body(this, "دیلی بلاک: ${s.delaySeconds} ثانیه"))
-            val apps = SessionManager.snapshotApps(s.configSnapshotJson).size
-            val sites = SessionManager.snapshotWebsites(s.configSnapshotJson).size
-            val rules = SessionManager.snapshotRules(s.configSnapshotJson).size
-            c.addView(UiKit.body(this, "کانفیگ قفل‌شده‌ی این سشن: $apps برنامه، $sites سایت، $rules قانون"))
-            val level = ProtectionHealth.protectionLevel(this)
-            c.addView(UiKit.body(this, "سطح محافظت واقعی: ${level.labelFa}"))
-            if (!ProtectionHealth.isAccessibilityEnabled(this)) {
-                c.addView(UiKit.body(this, "⚠ سرویس دسترسی خاموش است؛ اجرا در حال حاضر تضمین‌شده نیست."))
-            }
+            c.addView(timeRow("شروع سشن", faDigits(timeFa(s.startWallMillis))))
+            c.addView(UiKit.divider(this))
+            c.addView(timeRow("پایان سشن", faDigits(timeFa(s.endWallMillis))))
         })
 
         if (s.status == SessionStatus.ACTIVE) {
-            column.addView(UiKit.tonalButton(this, "تمدید ۱۵ دقیقه") {
+            column.addView(UiKit.outlinedButton(this, "تمدید") {
                 SessionManager.extendSession(this, 15 * 60_000L)
                 Toast.makeText(this, "سشن ۱۵ دقیقه تمدید شد", Toast.LENGTH_SHORT).show()
                 render()
             })
         }
         if (s.mode == SessionMode.NORMAL) {
-            column.addView(UiKit.primaryButton(this, "پایان دادن سشن") {
+            column.addView(UiKit.primaryButton(this, "پایان سشن") {
                 SessionForegroundService.stop(this)
                 SessionManager.endNormalSessionNow(this)
                 Toast.makeText(this, "سشن تمام شد", Toast.LENGTH_SHORT).show()
@@ -164,6 +192,37 @@ class SessionActivity : AppCompatActivity() {
             })
         }
         column.addView(UiKit.outlinedButton(this, "بازگشت به داشبورد") { finish() })
+    }
+
+    /** ردیف ساعت کارت شروع/پایان: آیکون ساعت + برچسب + ساعت پررنگ. */
+    private fun timeRow(label: String, time: String): LinearLayout {
+        val palette = ThemePalette.resolve(this)
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            addView(ImageView(this@SessionActivity).apply {
+                setImageResource(R.drawable.ic_tile_clock)
+                imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+                layoutParams = LinearLayout.LayoutParams(UiKit.dp(this@SessionActivity, 20), UiKit.dp(this@SessionActivity, 20))
+            })
+            addView(TextView(this@SessionActivity).apply {
+                text = label
+                textSize = 15f
+                setTextColor(palette.onSurface)
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                    marginStart = UiKit.dp(this@SessionActivity, 8)
+                }
+            })
+            addView(View(this@SessionActivity).apply {
+                layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+            })
+            addView(TextView(this@SessionActivity).apply {
+                text = time
+                textSize = 15f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(palette.onSurface)
+            })
+        }
     }
 
     // ---------- ساخت سشن ----------

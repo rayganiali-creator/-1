@@ -100,6 +100,8 @@ object UiKit {
             radius = dp(context, 28).toFloat()
             cardElevation = 0f
             setCardBackgroundColor(ThemePalette.resolve(context).surface)
+            setStrokeColor(android.content.res.ColorStateList.valueOf(ThemePalette.resolve(context).outline))
+            strokeWidth = dp(context, 1)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { bottomMargin = dp(context, 12) }
             useCompatPadding = true
@@ -119,7 +121,7 @@ object UiKit {
         private val ringView: RingView
         private val remainingView: TextView
         init {
-            val size = dp(context, 168)
+            val size = dp(context, 240)
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
                 topMargin = dp(context, 8); bottomMargin = dp(context, 8)
@@ -132,14 +134,14 @@ object UiKit {
                 layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             }
             remainingView = TextView(context).apply {
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 44f)
                 setTypeface(typeface, Typeface.BOLD)
                 setTextColor(ThemePalette.resolve(context).onSurface)
                 gravity = Gravity.CENTER
             }
             center.addView(remainingView)
             center.addView(TextView(context).apply {
-                text = "باقی‌مانده"
+                text = "زمان باقی‌مانده"
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 setTextColor(ThemePalette.resolve(context).onSurfaceVariant)
                 gravity = Gravity.CENTER
@@ -154,6 +156,45 @@ object UiKit {
 
     fun sessionRing(context: Context, remainingText: String, fraction: Float): LiveRingView =
         LiveRingView(context).apply { update(fraction, remainingText) }
+
+    /** کارت آمار شیشه‌ای موکاپ: آیکون + برچسب + عدد درشت، با خط نازک دور. */
+    fun statCard(context: Context, iconRes: Int, label: String, value: String): MaterialCardView {
+        val palette = ThemePalette.resolve(context)
+        val card = MaterialCardView(context).apply {
+            radius = dp(context, 24).toFloat()
+            cardElevation = 0f
+            setCardBackgroundColor(palette.surface)
+            setStrokeColor(android.content.res.ColorStateList.valueOf(palette.outline))
+            strokeWidth = dp(context, 1)
+            useCompatPadding = true
+        }
+        val inner = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            val pad = dp(context, 16)
+            setPadding(pad, pad, pad, pad)
+        }
+        inner.addView(ImageView(context).apply {
+            setImageResource(iconRes)
+            imageTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+            layoutParams = LinearLayout.LayoutParams(dp(context, 28), dp(context, 28))
+        })
+        inner.addView(TextView(context).apply {
+            text = label
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextColor(palette.onSurfaceVariant)
+            gravity = Gravity.CENTER
+        })
+        inner.addView(TextView(context).apply {
+            text = value
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(palette.onSurface)
+            gravity = Gravity.CENTER
+        })
+        card.addView(inner)
+        return card
+    }
 
     /** چیپ کوچکِ اطلاعات (دسته، تأخیر و...) برای ردیف‌های قوانین: خاکستری ملایم، متن ریز. */
     fun miniChip(context: Context, label: String): TextView = TextView(context).apply {
@@ -247,6 +288,8 @@ object UiKit {
             radius = dp(context, 24).toFloat()
             cardElevation = 0f
             setCardBackgroundColor(palette.tile)
+            setStrokeColor(android.content.res.ColorStateList.valueOf(palette.outline))
+            strokeWidth = dp(context, 1)
             isClickable = true
             isFocusable = true
             rippleColor = ColorStateList.valueOf(palette.accent)

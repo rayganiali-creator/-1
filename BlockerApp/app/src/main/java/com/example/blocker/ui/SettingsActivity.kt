@@ -78,6 +78,7 @@ class SettingsActivity : AppCompatActivity() {
         })
 
         renderSelfProtectionCard()
+        renderDeviceAdminCard()
 
         column.addView(UiKit.card(this) { c ->
             c.addView(UiKit.title(this, "رنگ پس‌زمینه", 17f))
@@ -127,7 +128,10 @@ class SettingsActivity : AppCompatActivity() {
         val enabled = PrefsManager.getSelfProtectionEnabled(this)
         val strict = SessionManager.isStrictActive(this)
         column.addView(UiKit.card(this) { c ->
-            c.addView(UiKit.title(this, "محافظت از حذف و توقف اجباری — بدون فکتوری‌ریست", 17f))
+            c.addView(UiKit.title(this, "خودمحافظتی", 17f))
+            c.addView(UiKit.body(this,
+                if (strict) "فعال در سشن Strict"
+                else if (enabled) "فعال" else "غیرفعال", 13f))
             c.addView(UiKit.body(
                 this,
                 "اگر اپ معمولی است و Device Owner نیست، حذف واقعی قفل نمی‌شود. این لایه‌ها فقط " +
@@ -160,15 +164,6 @@ class SettingsActivity : AppCompatActivity() {
                 12f
             ))
             c.addView(UiKit.divider(this))
-            c.addView(UiKit.body(this, "وضعیت Device Admin: " + DeviceAdminSetup.statusLabelFa(this), 13f))
-            if (DeviceOwnerHelper.isDeviceAdminActive(this)) {
-                c.addView(UiKit.body(this, "✅ Device Admin فعال است.", 14f))
-            } else {
-                c.addView(UiKit.tonalButton(this, "فعال‌سازی Device Admin") {
-                    DeviceAdminSetup.requestDeviceAdmin(this)
-                })
-            }
-            c.addView(UiKit.divider(this))
             if (strict) {
                 c.addView(UiKit.body(this,
                     "🔒 در سشن Strict محافظت کامل برقرار است و کلید قفل است؛ حتی اگر کلید خاموش " +
@@ -191,6 +186,21 @@ class SettingsActivity : AppCompatActivity() {
                 ).show()
                 render()
             }.apply { isEnabled = !strict })
+        })
+    }
+
+    /** کارت جدای Device Admin موکاپ: وضعیت + دکمه‌ی فعال‌سازی. */
+    private fun renderDeviceAdminCard() {
+        column.addView(UiKit.card(this) { c ->
+            c.addView(UiKit.title(this, "Device Admin", 17f))
+            c.addView(UiKit.body(this, "وضعیت Device Admin: " + DeviceAdminSetup.statusLabelFa(this), 13f))
+            if (DeviceOwnerHelper.isDeviceAdminActive(this)) {
+                c.addView(UiKit.body(this, "✅ Device Admin فعال است.", 14f))
+            } else {
+                c.addView(UiKit.tonalButton(this, "فعال‌سازی Device Admin") {
+                    DeviceAdminSetup.requestDeviceAdmin(this)
+                })
+            }
         })
     }
 }

@@ -11,6 +11,9 @@ import com.example.blocker.core.SessionMode
 import com.example.blocker.core.SessionSchedule
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 /**
@@ -304,6 +307,11 @@ object PrefsManager {
         } else {
             it.put("sessionsInterrupted", it.optInt("sessionsInterrupted") + 1)
         }
+        // سطل روزانه‌ی سشن‌های برگزار شده (برای «سشن‌های هفته» در داشبورد).
+        val byDay = it.optJSONObject("sessionsByDay") ?: JSONObject()
+        val today = dayKey()
+        byDay.put(today, byDay.optInt(today) + 1)
+        it.put("sessionsByDay", pruneDayBuckets(byDay))
     }
 
     fun recordBlock(context: Context, ruleKey: String) = mutateReports(context) {
@@ -311,6 +319,47 @@ object PrefsManager {
         val byRule = it.optJSONObject("blocksByRule") ?: JSONObject()
         byRule.put(ruleKey, byRule.optInt(ruleKey) + 1)
         it.put("blocksByRule", byRule)
+        // سطل روزانه‌ی بلاک‌ها (برای «بلاک‌های امروز» در داشبورد).
+        val byDay = it.optJSONObject("blocksByDay") ?: JSONObject()
+        val today = dayKey()
+        byDay.put(today, byDay.optInt(today) + 1)
+        it.put("blocksByDay", pruneDayBuckets(byDay))
+    }
+
+    private fun dayKey(): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+    /** سطل‌های روزانه‌ی قدیمی‌تر از ۳۰ روز را هرس می‌کند تا گزارش بی‌نهایت بزرگ نشود. */
+    private fun pruneDayBuckets(bucket: JSONObject): JSONObject {
+        val cutoff = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            .format(Date(System.currentTimeMillis() - 30L * 24 * 3600 * 1000L))
+        val keys = bucket.keys()
+        val drop = mutableListOf<String>()
+        while (keys.hasNext()) {
+            val k = keys.next()
+            if (k < cutoff) drop.add(k)
+        }
+        drop.forEach { bucket.remove(it) }
+        return bucket
+    }
+
+    /** بلاک‌های امروز (از سطل روزانه؛ سشن‌های قبل از این نسخه شمرده نمی‌شوند). */
+    fun getBlocksToday(context: Context): Int {
+        val o = getReportCounters(context)
+        return o.optJSONObject("blocksByDay")?.optInt(dayKey()) ?: 0
+    }
+
+    /** سشن‌های ۷ روز گذشته (از سطل روزانه). */
+    fun getSessionsLast7Days(context: Context): Int {
+        val o = getReportCounters(context)
+        val byDay = o.optJSONObject("sessionsByDay") ?: return 0
+        var sum = 0
+        for (i in 0 until 7) {
+            val key = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                .format(Date(System.currentTimeMillis() - i.toLong() * 24 * 3600 * 1000L))
+            sum += byDay.optInt(key)
+        }
+        return sum
     }
 
     fun recordProtectionFailure(context: Context, cause: String) = mutateReports(context) {
