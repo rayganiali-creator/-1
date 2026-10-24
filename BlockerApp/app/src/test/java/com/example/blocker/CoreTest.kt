@@ -247,15 +247,68 @@ class SelfProtectionGuardTest {
     }
 
     @Test fun installerUninstallDialogGuarded() {
-        assertTrue(SelfProtection.shouldGuardInstallerDialog(true, true, "com.android.packageinstaller", pkg, label, "آیا می‌خواهید سد را حذف کنید؟"))
+        assertTrue(SelfProtection.shouldGuardInstallerDialog(true, "com.android.packageinstaller", pkg, label, "آیا می‌خواهید سد را حذف کنید؟"))
     }
 
     @Test fun installerDialogOtherAppNotGuarded() {
-        assertFalse(SelfProtection.shouldGuardInstallerDialog(true, true, "com.android.packageinstaller", pkg, label, "آیا می‌خواهید تلگرام را حذف کنید؟"))
+        assertFalse(SelfProtection.shouldGuardInstallerDialog(true, "com.android.packageinstaller", pkg, label, "آیا می‌خواهید تلگرام را حذف کنید؟"))
     }
 
-    @Test fun installerDialogNoSessionNotGuarded() {
-        assertFalse(SelfProtection.shouldGuardInstallerDialog(false, true, "com.android.packageinstaller", pkg, label, "سد"))
+    @Test fun installerDialogNoSessionGuarded() {
+        // گارد دیالوگ سشن نمی‌خواهد: کلید روشن کافی است، حتی بدون سشن.
+        assertTrue(SelfProtection.shouldGuardInstallerDialog(true, "com.android.packageinstaller", pkg, label, "آیا می‌خواهید سد را حذف کنید؟"))
+    }
+
+    @Test fun installerDialogSamsungPackageGuarded() {
+        assertTrue(SelfProtection.shouldGuardInstallerDialog(true, "com.samsung.android.packageinstaller", pkg, label, "Uninstall سد؟"))
+    }
+
+    @Test fun installerDialogWithoutUninstallWordNotGuarded() {
+        // فقط لیبل، بدون کلمه‌ی حذف: دیالوگ حذف نیست.
+        assertFalse(SelfProtection.shouldGuardInstallerDialog(true, "com.android.packageinstaller", pkg, label, "سد نسخه ۲٫۰"))
+    }
+
+    @Test fun installerDialogPrefOffNotGuarded() {
+        assertFalse(SelfProtection.shouldGuardInstallerDialog(false, "com.android.packageinstaller", pkg, label, "آیا می‌خواهید سد را حذف کنید؟"))
+    }
+
+    @Test fun forceStopDialogWithLabelGuarded() {
+        // دیالوگ سامسونگی که نام اپ را دارد؛ فقط کلمه‌ی توقف، نه حذف.
+        assertTrue(SelfProtection.shouldGuardForceStopDialog(true, "com.android.settings", pkg, label, "توقف اجباری سد؟ اگر برنامه را متوقف کنید، ممکن است درست کار نکند.", false))
+    }
+
+    @Test fun forceStopDialogWithFlagNoLabelGuarded() {
+        // دیالوگ AOSP نام اپ را ندارد؛ پرچمِ تازه‌ی صفحه‌ی اطلاعات اپ جای لیبل را می‌گیرد.
+        assertTrue(SelfProtection.shouldGuardForceStopDialog(true, "com.android.settings", pkg, label, "Force stop? If you force stop an app, it may misbehave.", true))
+    }
+
+    @Test fun forceStopDialogStaleFlagNoLabelNotGuarded() {
+        assertFalse(SelfProtection.shouldGuardForceStopDialog(true, "com.android.settings", pkg, label, "Force stop? If you force stop an app, it may misbehave.", false))
+    }
+
+    @Test fun appInfoPageNotGuardedByDialogGuards() {
+        // صفحه‌ی اطلاعات اپ هر دو کلمه را دارد و باید از هر دو گارد دیالوگ کنار گذاشته شود.
+        val page = "سد حذف نصب توقف اجباری باز کردن غیرفعال کردن حافظه مجوزها"
+        assertFalse(SelfProtection.shouldGuardForceStopDialog(true, "com.android.settings", pkg, label, page, true))
+        assertFalse(SelfProtection.shouldGuardSettingsUninstallDialog(true, "com.android.settings", pkg, label, page, true))
+    }
+
+    @Test fun settingsUninstallDialogGuarded() {
+        assertTrue(SelfProtection.shouldGuardSettingsUninstallDialog(true, "com.android.settings", pkg, label, "حذف سد؟ لغو حذف", false))
+    }
+
+    @Test fun ownAppInfoPageDetection() {
+        assertTrue(SelfProtection.isOwnAppInfoPage("سد حذف نصب توقف اجباری", pkg, label))
+        assertFalse(SelfProtection.isOwnAppInfoPage("تنظیمات شبکه و اینترنت", pkg, label))
+        // صفحه‌ی اطلاعات اپِ دیگر لیبل ما را ندارد.
+        assertFalse(SelfProtection.isOwnAppInfoPage("تلگرام حذف نصب توقف اجباری", pkg, label))
+    }
+
+    @Test fun flagFreshnessWindow() {
+        val now = 1_000_000L
+        assertTrue(SelfProtection.isFlagFresh(now - 60_000L, now))
+        assertFalse(SelfProtection.isFlagFresh(now - 400_000L, now))
+        assertFalse(SelfProtection.isFlagFresh(0L, now))
     }
 
     @Test fun serviceEnabledInListForms() {

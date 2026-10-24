@@ -1,25 +1,39 @@
 package com.example.blocker.core
 
 /**
- * منطق خالص «محافظت از خودِ اپ» (راهِ بدون فکتوری‌ریست):
- * وقتی سشنی فعال است، باز شدنِ دقیقاً صفحه‌ی جزئیاتِ سرویسِ دسترسیِ خودِ «سد»
- * در تنظیمات (جایی که دکمه‌ی خاموش/روشن سرویس است) با back بسته می‌شود.
+ * منطق خالص «محافظت از خودِ اپ» (راهِ بدون فکتوری‌ریست). دو سطح با دو قاعده‌ی متفاوت:
  *
- * ریل‌های ایمنی — مهم، چون کاربر صراحتاً خواسته اپ باگی نداشته باشد که کل گوشی را قفل کند:
- *  - گارد فقط وقتی سشنی فعال است کار می‌کند؛ با پایان سشن (همه‌ی سشن‌ها، حتی ۹۰ روزه،
- *    بالاخره تمام می‌شوند) گارد خودبه‌خود خاموش می‌شود.
- *  - گارد فقط صفحه‌ی جزئیاتِ همین سرویس را می‌شناسد: لیبل اپ + نشانه‌ی توضیح سرویس +
- *    وجود یک Switch در درخت. صفحه‌ی اصلی تنظیمات، لیست سرویس‌ها و صفحه‌ی سرویس‌های
- *    دیگر این سه نشانه را با هم ندارند و هرگز بسته نمی‌شوند (fail-open: در شک، گارد
- *    فعال نمی‌شود).
- *  - عمل فقط GLOBAL_ACTION_BACK است؛ هرگز HOME یا قفل صفحه. بستن یک صفحه با back
- *    نمی‌تواند گوشی را قفل کند و کاربر با ورود دوباره هنوز می‌تواند به همان صفحه برسد.
- *  - گارد فقط وقتی سرویس روشن است می‌تواند اجرا شود (سرویس خاموش اصلاً رخداد نمی‌گیرد)؛
- *    پس مسیر «رفتن به همان صفحه برای روشن کردن سرویس» همیشه باز است.
- *  - فرارهای همیشه‌باز: پایان سشن، Safe Mode، ADB، صفحه‌ی ریکاوری اضطراری، و خاموش
- *    کردن گارد از داخل خودِ اپ (تنظیمات).
+ * ۱) گارد دیالوگ (حذف و توقف اجباری): هر وقت کلید خودمحافظتی روشن است — حتی بدون
+ *    سشن — دیالوگ تأیید حذفِ «سد» (در نصاب یا تنظیمات) و دیالوگ تأیید توقف اجباریِ
+ *    «سد» (در تنظیمات) با back بسته می‌شود. سشن لازم نیست، چون کاربر وقتی این
+ *    کلید را روشن می‌کند دقیقاً همین را می‌خواهد: «نشه حذفش کرد، نشه فورس استاپش کرد».
+ *
+ * ۲) گارد صفحه‌ی سرویس دسترسی: فقط وسط سشن. صفحه‌ی جزئیات سرویسِ خودمان در
+ *    تنظیمات (جایی که دکمه‌ی خاموش/روشن سرویس است) فقط وقتی سشنی فعال است بسته
+ *    می‌شود؛ بیرون از سشن این صفحه همیشه باز است تا کاربر بتواند سرویس را مدیریت
+ *    کند. این تفکیک، ریل ایمنیِ «اپ گوشی را قفل نکند» است.
+ *
+ * تفکیک صفحه از دیالوگ — مهم: صفحه‌ی اطلاعات اپ («سد» + دکمه‌های حذف و توقف
+ * اجباری) خودش هر دو کلمه را دارد. پس گارد دیالوگ فقط وقتی عمل می‌کند که دقیقاً
+ * یکی از دو کلمه باشد، نه هر دو: دیالوگ حذف فقط «حذف» دارد، دیالوگ توقف فقط
+ * «توقف اجباری» دارد، و صفحه‌ی اطلاعات هر دو را دارد و با این شرط کنار گذاشته
+ * می‌شود. صفحه‌ی اطلاعات اپ هرگز بسته نمی‌شود؛ فقط خودِ دیالوگ.
+ *
+ * شناسایی دیالوگ توقف برای اپِ خودمان: دیالوگ AOSP نام اپ را ندارد، پس علاوه بر
+ * تطبیق لیبل، یک پرچمِ «صفحه‌ی اطلاعاتِ خودِ اپ تازه دیده شده» هم قبول می‌شود:
+ * سرویس وقتی صفحه‌ای در تنظیمات را می‌بیند که هم لیبل ما و هم یکی از دو دکمه را
+ * دارد، زمانش را ثبت می‌کند؛ دیالوگی که تا ۵ دقیقه بعد در تنظیمات باز شود و فقط
+ * کلمه‌ی توقف را داشته باشد، دیالوگِ ماست. هر صفحه‌ی دیگری در تنظیمات که این
+ * ترکیب را نداشته باشد پرچم را پاک می‌کند — پس برای توقف اپِ دیگری، اول باید به
+ * صفحه‌ی اطلاعات همان اپ رفت که پرچم را پاک می‌کند. در شک، گارد عمل نمی‌کند
+ * (fail-open).
+ *
+ * ریل‌های ایمنی مشترک: عمل فقط GLOBAL_ACTION_BACK است؛ هرگز HOME یا قفل صفحه.
+ * ضربه‌گیر ۱.۵ ثانیه. فرارهای همیشه‌باز: خاموش کردن کلید از داخل خودِ اپ، پایان
+ * سشن (برای گارد صفحه)، Safe Mode، ADB، صفحه‌ی ریکاوری اضطراری.
  * صداقت فنی: این «اصطکاک» است، نه قفل سیستم — از Safe Mode یا adb دور زده می‌شود
- * و بعد از Force Stop تا باز شدن دوباره‌ی اپ کار نمی‌کند.
+ * و بعد از Force Stop تا باز شدن دوباره‌ی اپ کار نمی‌کند، و وقتی سرویس دسترسی
+ * خاموش است هیچ گاردی کار نمی‌کند. قفل واقعی فقط با Device Owner است.
  */
 object SelfProtection {
 
@@ -27,7 +41,11 @@ object SelfProtection {
     val SETTINGS_PACKAGES = setOf("com.android.settings")
     val PACKAGE_INSTALLER_PACKAGES = setOf(
         "com.android.packageinstaller",
-        "com.google.android.packageinstaller"
+        "com.google.android.packageinstaller",
+        // One UI سامسونگ ممکن است نصاب را با این پکیج‌ها نشان دهد؛ اگر وجود نداشته
+        // باشند هیچ‌وقت تطبیق نمی‌شوند، پس بودنشان بی‌خطر است.
+        "com.samsung.android.packageinstaller",
+        "com.sec.android.packageinstaller"
     )
 
     /**
@@ -38,9 +56,20 @@ object SelfProtection {
      */
     const val DESCRIPTION_MARKER = "مسدود کردن برنامه‌ها"
 
+    /** پنجره‌ی تازگیِ پرچم صفحه‌ی اطلاعات اپ: دیالوگ باید بلافاصله بعد از آن باز شده باشد. */
+    const val APP_INFO_FRESH_WINDOW_MS = 5 * 60_000L
+
     /** آیا پکیجِ پیش‌رو اصلاً کاندیدای بررسی خودمحافظتی است؟ */
     fun isRelevantForeground(packageName: String): Boolean =
         packageName in SETTINGS_PACKAGES || packageName in PACKAGE_INSTALLER_PACKAGES
+
+    /** آیا متن، کلمه‌ی حذف را دارد؟ (فارسی «حذف» همه‌ی صورت‌های حذف/حذف نصب/حذف برنامه را می‌گیرد.) */
+    fun containsUninstallWord(screenText: String): Boolean =
+        screenText.contains("حذف") || screenText.contains("uninstall", ignoreCase = true)
+
+    /** آیا متن، عبارت توقف اجباری را دارد؟ */
+    fun containsForceStopWord(screenText: String): Boolean =
+        screenText.contains("توقف اجباری") || screenText.contains("force stop", ignoreCase = true)
 
     /**
      * آیا متنِ این صفحه‌ی سیستمی درباره‌ی همین اپ است؟
@@ -70,6 +99,19 @@ object SelfProtection {
     }
 
     /**
+     * آیا این صفحه، صفحه‌ی اطلاعاتِ خودِ اپ در تنظیمات است؟ لیبل ما + یکی از دو
+     * دکمه‌ی حذف/توقف. صفحه‌ی اطلاعات اپِ دیگر لیبل ما را ندارد و پاک‌کننده‌ی پرچم است.
+     */
+    fun isOwnAppInfoPage(screenText: String, ownPackage: String, ownAppLabel: String): Boolean {
+        if (!screenTargetsOwnApp(screenText, ownPackage, ownAppLabel)) return false
+        return containsUninstallWord(screenText) || containsForceStopWord(screenText)
+    }
+
+    /** آیا پرچم صفحه‌ی اطلاعات اپ هنوز تازه است؟ */
+    fun isFlagFresh(lastOwnAppInfoPageTime: Long, now: Long): Boolean =
+        lastOwnAppInfoPageTime > 0 && now - lastOwnAppInfoPageTime <= APP_INFO_FRESH_WINDOW_MS
+
+    /**
      * آیا این صفحه دقیقاً صفحه‌ی جزئیاتِ سرویسِ دسترسیِ خودمان است؟
      * هر سه نشانه لازم است: لیبل اپ (کلمه‌ی کامل)، نشانه‌ی توضیح سرویس، و یک Switch.
      * لیست سرویس‌ها توضیح کامل را نشان نمی‌دهد؛ صفحه‌ی اصلی تنظیمات لیبل ما را ندارد؛
@@ -91,7 +133,7 @@ object SelfProtection {
     /**
      * تصمیم نهایی برای صفحه‌های تنظیمات. فقط وقتی true برمی‌گردد که همه‌ی شرط‌ها
      * برقرار باشند: سشن فعال (هر حالت)، گارد روشن، پکیج تنظیمات، و صفحه دقیقاً
-     * جزئیاتِ سرویسِ خودمان.
+     * جزئیاتِ سرویسِ خودمان. این تنها گاردی است که سشن می‌خواهد.
      */
     fun shouldGuardSettingsPage(
         sessionActive: Boolean,
@@ -110,21 +152,63 @@ object SelfProtection {
     }
 
     /**
-     * تصمیم نهایی برای دیالوگ حذف در نصاب. دیالوگ گذراست و با back فقط بسته می‌شود؛
-     * قاعده‌ی قدیمی (لیبل/پکیج اپ در متن دیالوگ) حفظ شده است.
+     * تصمیم نهایی برای دیالوگ حذف در نصاب. فقط کلید لازم است، سشن لازم نیست.
+     * دیالوگ نصاب همیشه نام اپ را دارد، پس تطبیق لیبل/پکیج + کلمه‌ی حذف کافی است.
      */
     fun shouldGuardInstallerDialog(
-        sessionActive: Boolean,
         selfProtectionEnabled: Boolean,
         foregroundPackage: String,
         ownPackage: String,
         ownAppLabel: String,
         screenText: String
     ): Boolean {
-        if (!sessionActive || !selfProtectionEnabled) return false
+        if (!selfProtectionEnabled) return false
         if (foregroundPackage == ownPackage) return false
         if (foregroundPackage !in PACKAGE_INSTALLER_PACKAGES) return false
+        if (!containsUninstallWord(screenText)) return false
         return screenTargetsOwnApp(screenText, ownPackage, ownAppLabel)
+    }
+
+    /**
+     * تصمیم نهایی برای دیالوگ حذفِ میزبانی‌شده در تنظیمات (برخی OEMها دیالوگ را
+     * در خودِ تنظیمات نشان می‌دهند). فقط کلید لازم است. شرط «نه توقف» صفحه‌ی
+     * اطلاعات اپ را کنار می‌گذارد، چون آن صفحه هر دو کلمه را دارد.
+     */
+    fun shouldGuardSettingsUninstallDialog(
+        selfProtectionEnabled: Boolean,
+        foregroundPackage: String,
+        ownPackage: String,
+        ownAppLabel: String,
+        screenText: String,
+        ownAppInfoPageFresh: Boolean
+    ): Boolean {
+        if (!selfProtectionEnabled) return false
+        if (foregroundPackage == ownPackage) return false
+        if (foregroundPackage !in SETTINGS_PACKAGES) return false
+        if (!containsUninstallWord(screenText)) return false
+        if (containsForceStopWord(screenText)) return false
+        return screenTargetsOwnApp(screenText, ownPackage, ownAppLabel) || ownAppInfoPageFresh
+    }
+
+    /**
+     * تصمیم نهایی برای دیالوگ تأیید توقف اجباری در تنظیمات. فقط کلید لازم است.
+     * شرط «نه حذف» صفحه‌ی اطلاعات اپ را کنار می‌گذارد. دیالوگ AOSP نام اپ را
+     * ندارد، پس پرچمِ تازه‌ی صفحه‌ی اطلاعات اپ هم به‌جای لیبل قبول می‌شود.
+     */
+    fun shouldGuardForceStopDialog(
+        selfProtectionEnabled: Boolean,
+        foregroundPackage: String,
+        ownPackage: String,
+        ownAppLabel: String,
+        screenText: String,
+        ownAppInfoPageFresh: Boolean
+    ): Boolean {
+        if (!selfProtectionEnabled) return false
+        if (foregroundPackage == ownPackage) return false
+        if (foregroundPackage !in SETTINGS_PACKAGES) return false
+        if (!containsForceStopWord(screenText)) return false
+        if (containsUninstallWord(screenText)) return false
+        return screenTargetsOwnApp(screenText, ownPackage, ownAppLabel) || ownAppInfoPageFresh
     }
 
     /**

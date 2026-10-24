@@ -80,6 +80,8 @@ class BlockAccessibilityService : AccessibilityService() {
     private var lastBlockedSignature: String = ""
     private var lastBlockedTime: Long = 0L
     private var lastSelfProtectTime: Long = 0L
+    /** آخرین باری که صفحه‌ی اطلاعاتِ خودِ اپ در تنظیمات دیده شد (برای شناسایی دیالوگ توقف AOSP که نام اپ را ندارد). */
+    private var lastOwnAppInfoPageTime: Long = 0L
     private var lastHeartbeat: Long = 0L
     private var lastSessionCheck: Long = 0L
 
@@ -171,19 +173,23 @@ class BlockAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * خودمحافظتی (راه بدون فکتوری‌ریست): فقط وقتی سشنی فعال و گارد روشن است، و فقط
-     * صفحه‌ی جزئیاتِ سرویسِ خودِ «سد» در تنظیمات (لیبل + توضیح سرویس + Switch) یا
-     * دیالوگ حذف در نصاب، با back بسته و صفحه‌ی «مسدود شد» نمایش داده می‌شود.
-     * ریل‌های ایمنی: فقط back (هرگز HOME یا قفل)؛ ضربه‌گیر ۱.۵ ثانیه؛ fail-open در
-     * شک؛ وقتی سشنی فعال نیست یا سرویس خاموش است (مسیر روشن کردن سرویس) هرگز
-     * اجرا نمی‌شود — سرویس خاموش اصلاً رخداد نمی‌گیرد.
+     * خودمحافظتی (راه بدون فکتوری‌ریست)، در دو سطح:
+     *  - دیالوگ‌های حذف و توقف اجباریِ «سد»: هر وقت کلید خودمحافظتی روشن است
+     *    (حتی بدون سشن) با back بسته می‌شوند؛ صفحه‌ی اطلاعات اپ بسته نمی‌شود،
+     *    چون گارد دیالوگ فقط وقتی عمل می‌کند که دقیقاً یکی از دو کلمه‌ی حذف/
+     *    توقف در متن باشد، نه هر دو.
+     *  - صفحه‌ی جزئیات سرویسِ خودمان در تنظیمات: فقط وسط سشن بسته می‌شود تا
+     *    بیرون از سشن، مدیریت سرویس همیشه در دسترس کاربر باشد.
+     * ترتیب مهم: اول تصمیم گارد با پرچمِ فعلیِ صفحه‌ی اطلاعات اپ، بعد
+     * به‌روزرسانی پرچم از صفحه‌ی فعلی — تا رخدادِ خودِ دیالوگ پرچم را پاک نکند.
+     * ریل‌های ایمنی: فقط back (هرگز HOME یا قفل)؛ ضربه‌گیر ۱.۵ ثانیه؛ fail-open
+     * در شک؛ وقتی سرویس خاموش است (مسیر روشن کردن سرویس) هرگز اجرا نمی‌شود —
+     * سرویس خاموش اصلاً رخداد نمی‌گیرد.
      * @return true اگر اقدام خودمحافظتی انجام شد (رخداد عادی دیگر پردازش نشود).
      */
     private fun checkSelfProtection(packageName: String): Boolean {
         val guardOn = PrefsManager.getSelfProtectionEnabled(this)
         if (!guardOn) return false
-        val sessionActive = SessionManager.activeSession(this) != null
-        if (!sessionActive) return false
         if (!SelfProtection.isRelevantForeground(packageName)) return false
         val root = rootInActiveWindow ?: return false
         val sb = StringBuilder()
@@ -193,29 +199,51 @@ class BlockAccessibilityService : AccessibilityService() {
         } catch (e: Exception) {
             return false
         }
+        val text = sb.toString()
         val label = try { applicationInfo.loadLabel(packageManager)?.toString() ?: "" } catch (e: Exception) { "" }
-        val guarded = when (packageName) {
-            in SelfProtection.SETTINGS_PACKAGES -> SelfProtection.shouldGuardSettingsPage(
-                sessionActive, guardOn, packageName, this.packageName, label,
-                SelfProtection.DESCRIPTION_MARKER, sb.toString(), switchFound[0]
-            )
-            in SelfProtection.PACKAGE_INSTALLER_PACKAGES -> SelfProtection.shouldGuardInstallerDialog(
-                sessionActive, guardOn, packageName, this.packageName, label, sb.toString()
-            )
-            else -> false
-        }
-        if (!guarded) return false
         val now = System.currentTimeMillis()
+        val sessionActive = SessionManager.activeSession(this) != null
+        val flagFresh = SelfProtection.isFlagFresh(lastOwnAppInfoPageTime, now)
+
+        val message: String? = when (packageName) {
+            in SelfProtection.SETTINGS_PACKAGES -> when {
+                SelfProtection.shouldGuardSettingsPage(
+                    sessionActive, guardOn, packageName, this.packageName, label,
+                    SelfProtection.DESCRIPTION_MARKER, text, switchFound[0]
+                ) -> "این صفحه در طول سشن محافظت می‌شود.\n(حذف یا غیرفعال‌سازی سد وسط سشن مسدود است.)"
+                SelfProtection.shouldGuardForceStopDialog(
+                    guardOn, packageName, this.packageName, label, text, flagFresh
+                ) -> "توقف اجباری «سد» مسدود است.\nبرای توقف اجباری، اول خودمحافظتی را در تنظیماتِ اپ خاموش کن."
+                SelfProtection.shouldGuardSettingsUninstallDialog(
+                    guardOn, packageName, this.packageName, label, text, flagFresh
+                ) -> "حذف «سد» مسدود است.\nبرای حذف، اول خودمحافظتی را در تنظیماتِ اپ خاموش کن."
+                else -> null
+            }
+            in SelfProtection.PACKAGE_INSTALLER_PACKAGES -> when {
+                SelfProtection.shouldGuardInstallerDialog(
+                    guardOn, packageName, this.packageName, label, text
+                ) -> "حذف «سد» مسدود است.\nبرای حذف، اول خودمحافظتی را در تنظیماتِ اپ خاموش کن."
+                else -> null
+            }
+            else -> null
+        }
+        if (message == null) {
+            // گاردی عمل نکرد: پرچم را از صفحه‌ی فعلی به‌روز کن — صفحه‌ی اطلاعاتِ
+            // خودمان پرچم را تازه می‌کند، هر صفحه‌ی دیگری در تنظیمات آن را پاک می‌کند.
+            if (packageName in SelfProtection.SETTINGS_PACKAGES) {
+                lastOwnAppInfoPageTime =
+                    if (SelfProtection.isOwnAppInfoPage(text, this.packageName, label)) now else 0L
+            }
+            return false
+        }
+        lastOwnAppInfoPageTime = 0L
         if (now - lastSelfProtectTime < 1500) return true
         lastSelfProtectTime = now
         PrefsManager.recordBlock(this, "self-protection")
         performGlobalAction(GLOBAL_ACTION_BACK)
         val intent = Intent(this, BlockedScreenActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra(
-                BlockedScreenActivity.EXTRA_MESSAGE,
-                "این صفحه در طول سشن محافظت می‌شود.\n(حذف یا غیرفعال‌سازی سد وسط سشن مسدود است.)"
-            )
+            putExtra(BlockedScreenActivity.EXTRA_MESSAGE, message)
         }
         startActivity(intent)
         return true

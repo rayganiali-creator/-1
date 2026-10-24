@@ -121,11 +121,11 @@ class SettingsActivity : AppCompatActivity() {
     private fun renderSelfProtectionCard() {
         val enabled = PrefsManager.getSelfProtectionEnabled(this)
         column.addView(UiKit.card(this) { c ->
-            c.addView(UiKit.title(this, "محافظت از حذف — بدون فکتوری‌ریست", 17f))
+            c.addView(UiKit.title(this, "محافظت از حذف و توقف اجباری — بدون فکتوری‌ریست", 17f))
             c.addView(UiKit.body(
                 this,
-                "اگر اپ معمولی است و Device Owner نیست، حذف واقعی قفل نمی‌شود. این دو لایه فقط " +
-                        "حذفِ لحظه‌ایِ از روی وسوسه را سخت می‌کنند:"
+                "اگر اپ معمولی است و Device Owner نیست، حذف واقعی قفل نمی‌شود. این لایه‌ها فقط " +
+                        "حذف و توقفِ لحظه‌ایِ از روی وسوسه را سخت می‌کنند:"
             ))
             c.addView(UiKit.body(
                 this,
@@ -134,16 +134,23 @@ class SettingsActivity : AppCompatActivity() {
             ))
             c.addView(UiKit.body(
                 this,
-                "۲) خودمحافظتی در سشن: وقتی سشنی فعال است، فقط صفحه‌ی جزئیات سرویس «سد» " +
-                        "در تنظیمات (همان صفحه‌ای که دکمه‌ی روشن/خاموش سرویس در آن است) بسته می‌شود؛ " +
-                        "صفحه‌ی اصلی تنظیمات، لیست سرویس‌ها و صفحه‌ی سرویس‌های دیگر دست نمی‌خورند. " +
-                        "دیالوگ حذف هم وسط سشن بسته می‌شود.",
+                "۲) گارد دیالوگ: هر وقت این کلید روشن است — حتی بدون سشن — دیالوگ تأیید حذفِ «سد» " +
+                        "(در نصاب یا تنظیمات) و دیالوگ تأیید توقف اجباریِ «سد» با back بسته می‌شوند. " +
+                        "صفحه‌ی اطلاعات اپ بسته نمی‌شود؛ فقط خودِ دیالوگ.",
                 13f
             ))
             c.addView(UiKit.body(
                 this,
-                "محدودیت صادقانه: این اصطکاک است، نه قفل. از Safe Mode یا adb دور زده می‌شود و بعد از Force Stop " +
-                        "تا باز شدن دوباره‌ی اپ کار نمی‌کند. قفل واقعی فقط با Device Owner است (راهنما در «درباره»).",
+                "۳) گارد صفحه‌ی سرویس: فقط وسط سشن، صفحه‌ی جزئیات سرویس «سد» در تنظیمات " +
+                        "بسته می‌شود تا وسط سشن نتوانی سرویس را خاموش کنی؛ بیرون از سشن این صفحه " +
+                        "همیشه باز است تا خودت سرویس را مدیریت کنی.",
+                13f
+            ))
+            c.addView(UiKit.body(
+                this,
+                "محدودیت صادقانه: این اصطکاک است، نه قفل. از Safe Mode یا adb دور زده می‌شود؛ " +
+                        "بعد از Force Stop تا باز شدن دوباره‌ی اپ کار نمی‌کند؛ و وقتی سرویس دسترسی " +
+                        "خاموش است هیچ گاردی کار نمی‌کند. قفل واقعی فقط با Device Owner است (راهنما در «درباره»).",
                 12f
             ))
             c.addView(UiKit.divider(this))
@@ -156,12 +163,12 @@ class SettingsActivity : AppCompatActivity() {
                 })
             }
             c.addView(UiKit.divider(this))
-            val toggleText = if (enabled) "✅ خودمحافظتی در سشن: فعال" else "خودمحافظتی در سشن: غیرفعال"
+            val toggleText = if (enabled) "✅ خودمحافظتی: فعال" else "خودمحافظتی: غیرفعال"
             c.addView(UiKit.tonalButton(this, toggleText) {
                 PrefsManager.setSelfProtectionEnabled(this, !enabled)
                 Toast.makeText(
                     this,
-                    if (!enabled) "خودمحافظتی فعال شد؛ در سشن فعال بعدی اثر دارد."
+                    if (!enabled) "خودمحافظتی فعال شد؛ دیالوگ‌های حذف و توقف اجباری از همین حالا بسته می‌شوند."
                     else "خودمحافظتی غیرفعال شد.", Toast.LENGTH_SHORT
                 ).show()
                 render()

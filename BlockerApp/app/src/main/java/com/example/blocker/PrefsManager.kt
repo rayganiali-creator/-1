@@ -176,7 +176,7 @@ object PrefsManager {
         prefs(context).edit().putString(KEY_DEFAULT_COOLING, c.name).apply()
     }
 
-    /** خودمحافظتی در سشن (هر حالت): فقط صفحه‌ی جزئیات سرویس خودمان در تنظیمات. پیش‌فرض روشن؛ از تنظیمات قابل خاموش کردن است. */
+    /** خودمحافظتی: گارد دیالوگ‌های حذف/توقف (همیشه، با کلید) + گارد صفحه‌ی سرویس (فقط وسط سشن). پیش‌فرض روشن؛ از تنظیمات قابل خاموش کردن است. */
     fun getSelfProtectionEnabled(context: Context): Boolean =
         prefs(context).getBoolean(KEY_SELF_PROTECTION, true)
 
