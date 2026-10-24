@@ -120,6 +120,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun renderSelfProtectionCard() {
         val enabled = PrefsManager.getSelfProtectionEnabled(this)
+        val strict = SessionManager.isStrictActive(this)
         column.addView(UiKit.card(this) { c ->
             c.addView(UiKit.title(this, "محافظت از حذف و توقف اجباری — بدون فکتوری‌ریست", 17f))
             c.addView(UiKit.body(
@@ -163,8 +164,21 @@ class SettingsActivity : AppCompatActivity() {
                 })
             }
             c.addView(UiKit.divider(this))
-            val toggleText = if (enabled) "✅ خودمحافظتی: فعال" else "خودمحافظتی: غیرفعال"
+            if (strict) {
+                c.addView(UiKit.body(this,
+                    "🔒 در سشن Strict این کلید قفل است؛ نه می‌توانی خاموشش کنی نه روشنش کنی. " +
+                    "تا پایان سشن با همان وضعیتی می‌ماند که سشن با آن شروع شد — وگرنه وسط وسوسه " +
+                    "کافی بود کلید را بزنی و بعد اپ را حذف کنی.", 13f))
+            }
+            val toggleText = if (strict) {
+                if (enabled) "🔒 خودمحافظتی: فعال (قفل در سشن Strict)" else "🔒 خودمحافظتی: غیرفعال (قفل در سشن Strict)"
+            } else if (enabled) "✅ خودمحافظتی: فعال" else "خودمحافظتی: غیرفعال"
             c.addView(UiKit.tonalButton(this, toggleText) {
+                if (SessionManager.isStrictActive(this)) {
+                    Toast.makeText(this, "در سشن Strict خودمحافظتی قفل است و تا پایان سشن قابل تغییر نیست.", Toast.LENGTH_SHORT).show()
+                    render()
+                    return@tonalButton
+                }
                 PrefsManager.setSelfProtectionEnabled(this, !enabled)
                 Toast.makeText(
                     this,
@@ -172,7 +186,7 @@ class SettingsActivity : AppCompatActivity() {
                     else "خودمحافظتی غیرفعال شد.", Toast.LENGTH_SHORT
                 ).show()
                 render()
-            })
+            }.apply { isEnabled = !strict })
         })
     }
 }
