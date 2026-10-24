@@ -32,6 +32,7 @@ object PrefsManager {
     private const val KEY_DELAY_SECONDS = "delay_seconds"
     private const val KEY_DEFAULT_COOLING = "default_cooling_off"
     private const val KEY_ONBOARDING_DONE = "onboarding_done"
+    private const val KEY_WIDGET_PROMPT_NEVER = "widget_prompt_never"
     private const val KEY_ONBOARDING_STEP = "onboarding_step"
     private const val KEY_LAST_DIAGNOSTIC = "last_diagnostic_at"
     private const val KEY_SELF_PROTECTION = "self_protection_enabled"
@@ -186,6 +187,8 @@ object PrefsManager {
 
     fun isOnboardingDone(context: Context): Boolean = prefs(context).getBoolean(KEY_ONBOARDING_DONE, false)
     fun setOnboardingDone(context: Context, done: Boolean) { prefs(context).edit().putBoolean(KEY_ONBOARDING_DONE, done).apply() }
+    fun isWidgetPromptNever(context: Context): Boolean = prefs(context).getBoolean(KEY_WIDGET_PROMPT_NEVER, false)
+    fun setWidgetPromptNever(context: Context, never: Boolean) { prefs(context).edit().putBoolean(KEY_WIDGET_PROMPT_NEVER, never).apply() }
     fun getOnboardingStep(context: Context): Int = prefs(context).getInt(KEY_ONBOARDING_STEP, 0)
     fun setOnboardingStep(context: Context, step: Int) { prefs(context).edit().putInt(KEY_ONBOARDING_STEP, step).apply() }
     fun getLastDiagnosticAt(context: Context): Long = prefs(context).getLong(KEY_LAST_DIAGNOSTIC, 0L)

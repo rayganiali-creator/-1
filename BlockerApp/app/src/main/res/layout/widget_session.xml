@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ویجت مینیمال «سد»: زمان باقی‌مانده‌ی سشن + نوار پیشرفت نازک. ضرب‌در صفحه‌ی اصلی، SessionActivity را باز می‌کند. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="16dp"
+    android:gravity="center_vertical">
+    <TextView
+        android:id="@+id/widget_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="سد • زمان باقی‌مانده"
+        android:textSize="12sp"
+        android:textColor="#7CFFD9" />
+    <TextView
+        android:id="@+id/widget_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="--:--"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF" />
+    <ProgressBar
+        android:id="@+id/widget_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:layout_marginTop="8dp"
+        android:max="100"
+        android:progress="0"
+        android:progressTint="#7CFFD9"
+        android:progressBackgroundTint="#33FFFFFF" />
+</LinearLayout>

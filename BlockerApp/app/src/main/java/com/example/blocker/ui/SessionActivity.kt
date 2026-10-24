@@ -1,5 +1,8 @@
 package com.example.blocker.ui
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -21,6 +24,8 @@ import com.example.blocker.core.SessionStatus
 import com.example.blocker.health.ProtectionHealth
 import com.example.blocker.service.SessionForegroundService
 import com.example.blocker.session.SessionManager
+import com.example.blocker.widget.SessionWidgetProvider
+import com.example.blocker.widget.SessionWidgetUpdater
 
 /** صفحه‌ی ساخت و مدیریت سشن؛ Quick Start داشبورد هم به همین‌جا می‌آید. */
 class SessionActivity : AppCompatActivity() {
@@ -351,5 +356,30 @@ class SessionActivity : AppCompatActivity() {
         SessionForegroundService.start(this)
         Toast.makeText(this, "سشن شروع شد", Toast.LENGTH_SHORT).show()
         render()
+        SessionWidgetUpdater.updateAll(this)
+        maybePromptWidget()
+    }
+
+    /**
+     * پرسش گذاشتن ویجت — اول از کاربر می‌پرسد، خودش چیزی اضافه نمی‌کند:
+     * فقط موقع شروع سشن، فقط اگر هنوز ویجتی نیست و کاربر «دیگر نپرس» نزده باشد.
+     * «بذار» دیالوگ سیستمی pin را باز می‌کند؛ «بعداً» دفعه‌ی بعد دوباره می‌پرسد.
+     */
+    private fun maybePromptWidget() {
+        if (PrefsManager.isWidgetPromptNever(this) || SessionWidgetUpdater.hasWidget(this)) return
+        AlertDialog.Builder(this)
+            .setTitle("ویجت زمان باقی‌مانده")
+            .setMessage("می‌خوای ویجت «سد» را روی صفحه‌ی اصلی بگذاری تا زمان باقی‌مانده‌ی سشن را همان‌جا ببینی؟")
+            .setPositiveButton("بذار") { _, _ ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    AppWidgetManager.getInstance(this).requestPinAppWidget(
+                        ComponentName(this, SessionWidgetProvider::class.java), null, null)
+                } else {
+                    Toast.makeText(this, "از لیست ویجت‌های صفحه‌ی اصلی، ویجت «سد» را اضافه کن.", Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton("بعداً", null)
+            .setNeutralButton("دیگر نپرس") { _, _ -> PrefsManager.setWidgetPromptNever(this, true) }
+            .show()
     }
 }

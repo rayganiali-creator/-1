@@ -4,15 +4,15 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- سپرِ خطیِ سفید؛ دیواره‌ی سد (مستطیلِ گردِ سفید) روی آن می‌نشیند و خط سپر را قطع می‌کند. -->
+    <!-- آیکن «سد» — گزینه‌ی ۳ (تیره‌ی نئونی): سپرِ خطیِ نعنایی + دیواره‌ی سد، روی پس‌زمینه‌ی زغالی. -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="#7CFFD9"
         android:strokeWidth="5"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:pathData="M54,26 L30,38 L30,56 C30,68 40,77 54,82 C68,77 78,68 78,56 L78,38 Z" />
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#7CFFD9"
         android:pathData="M27,50 h54 a3,3 0 0 1 3,3 v4 a3,3 0 0 1 -3,3 h-54 a3,3 0 0 1 -3,-3 v-4 a3,3 0 0 1 3,-3 Z" />
 </vector>

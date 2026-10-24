@@ -1,0 +1,5 @@
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <!-- پس‌زمینه‌ی ویجت «سد»: کارت زغالی گرد، هماهنگ با آیکن تیره‌ی نئونی. -->
+    <solid android:color="#FF1E242B" />
+    <corners android:radius="24dp" />
+</shape>

@@ -18,6 +18,7 @@ import com.example.blocker.R
 import com.example.blocker.health.ProtectionHealth
 import com.example.blocker.session.SessionManager
 import com.example.blocker.ui.SessionActivity
+import com.example.blocker.widget.SessionWidgetUpdater
 
 /**
  * سرویس پیش‌زمینه‌ی سشن: نوتیفیکیشن پایدار با زمان باقی‌مانده.
@@ -51,6 +52,7 @@ class SessionForegroundService : Service() {
             val s = SessionManager.activeSession(this@SessionForegroundService)
             if (s == null) { stopSelf(); return }
             notify(buildNotification(s))
+            SessionWidgetUpdater.updateAll(this@SessionForegroundService)
             // نگهبان خاموشی سرویس: اگر وسط سشن، سرویس دسترسی خاموش شد، به‌جای
             // سکوت (که یعنی «محافظت ادامه دارد» در حالی که ندارد) یک بار هشدار بده.
             // با برگشتن سرویس، پرچم ریست می‌شود تا خاموشی بعدی دوباره هشدار بدهد.
@@ -84,12 +86,14 @@ class SessionForegroundService : Service() {
         running = true
         handler.removeCallbacks(ticker)
         handler.postDelayed(ticker, 30_000L)
+        SessionWidgetUpdater.updateAll(this)
         return START_STICKY
     }
 
     override fun onDestroy() {
         running = false
         handler.removeCallbacks(ticker)
+        SessionWidgetUpdater.updateAll(this)
         super.onDestroy()
     }
 
