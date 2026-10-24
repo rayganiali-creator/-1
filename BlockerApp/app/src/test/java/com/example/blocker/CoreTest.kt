@@ -5,7 +5,9 @@ import com.example.blocker.core.CoolingOff
 import com.example.blocker.core.DurationRange
 import com.example.blocker.core.KeywordMatcher
 import com.example.blocker.core.KeywordRule
+import com.example.blocker.core.OwnAppGuard
 import com.example.blocker.core.PendingBlockManager
+import com.example.blocker.core.RuleDelays
 import com.example.blocker.core.ScheduleCalculator
 import com.example.blocker.core.SelfProtection
 import com.example.blocker.core.SessionMode
@@ -275,5 +277,60 @@ class DurationRangeTest {
         assertFalse(DurationRange.isValid(90L * 24L * 60L * 60L * 1000L + 1L))
         assertFalse(DurationRange.isValid(0L))
         assertFalse(DurationRange.isValid(-1_000L))
+    }
+}
+
+/**
+ * نگهبان پنجره‌ی خودمان: متن خودِ اپ هرگز نباید بلاک شود، حتی وقتی رخداد
+ * با پکیج دیگری (مثل صفحه‌کلید) می‌رسد.
+ */
+class OwnAppGuardTest {
+    private val own = "com.example.blocker"
+
+    @Test fun eventFromOwnAppSkipped() {
+        assertTrue(OwnAppGuard.shouldSkip(own, "com.other.app", own))
+    }
+
+    @Test fun foreignEventWithOwnActiveWindowSkipped() {
+        // سناریوی باگ گزارش‌شده: کاربر داخل خودِ اپ است و رخداد از صفحه‌کلید می‌آید.
+        assertTrue(OwnAppGuard.shouldSkip("com.google.android.inputmethod.latin", own, own))
+    }
+
+    @Test fun foreignEventWithForeignWindowProcessed() {
+        assertFalse(OwnAppGuard.shouldSkip("com.other.app", "com.other.app", own))
+    }
+
+    @Test fun nullWindowWithForeignEventProcessed() {
+        assertFalse(OwnAppGuard.shouldSkip("com.other.app", null, own))
+    }
+
+    @Test fun nullEventWithOwnWindowSkipped() {
+        assertTrue(OwnAppGuard.shouldSkip(null, own, own))
+    }
+}
+
+class RuleDelaysTest {
+    @Test fun sanitize() {
+        assertEquals(RuleDelays.FOLLOW_GLOBAL, RuleDelays.sanitize(RuleDelays.FOLLOW_GLOBAL))
+        assertEquals(0, RuleDelays.sanitize(0))
+        assertEquals(5, RuleDelays.sanitize(5))
+        assertEquals(RuleDelays.FOLLOW_GLOBAL, RuleDelays.sanitize(6))
+        assertEquals(RuleDelays.FOLLOW_GLOBAL, RuleDelays.sanitize(10))
+        assertEquals(RuleDelays.FOLLOW_GLOBAL, RuleDelays.sanitize(-2))
+    }
+
+    @Test fun labels() {
+        assertEquals("دیلی سراسری", RuleDelays.labelFa(RuleDelays.FOLLOW_GLOBAL))
+        assertEquals("فوری", RuleDelays.labelFa(0))
+        assertEquals("3 ثانیه", RuleDelays.labelFa(3))
+    }
+
+    @Test fun effectiveDelay() {
+        val followGlobal = KeywordRule(id = "1", text = "x")
+        assertEquals(5, followGlobal.effectiveDelaySeconds(5))
+        val immediate = KeywordRule(id = "2", text = "y", delaySeconds = 0)
+        assertEquals(0, immediate.effectiveDelaySeconds(5))
+        val three = KeywordRule(id = "3", text = "z", delaySeconds = 3)
+        assertEquals(3, three.effectiveDelaySeconds(5))
     }
 }

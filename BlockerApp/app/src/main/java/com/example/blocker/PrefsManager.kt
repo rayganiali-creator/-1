@@ -6,6 +6,7 @@ import com.example.blocker.core.BlockingDelays
 import com.example.blocker.core.CoolingOff
 import com.example.blocker.core.FocusProfile
 import com.example.blocker.core.KeywordRule
+import com.example.blocker.core.RuleDelays
 import com.example.blocker.core.SessionMode
 import com.example.blocker.core.SessionSchedule
 import org.json.JSONArray
@@ -34,6 +35,7 @@ object PrefsManager {
     private const val KEY_ONBOARDING_STEP = "onboarding_step"
     private const val KEY_LAST_DIAGNOSTIC = "last_diagnostic_at"
     private const val KEY_SELF_PROTECTION = "self_protection_enabled"
+    private const val KEY_THEME = "theme"
 
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -130,6 +132,7 @@ object PrefsManager {
         put("enabled", r.enabled); put("wholeWord", r.wholeWord)
         put("caseSensitive", r.caseSensitive); put("isAllow", r.isAllow)
         put("targets", JSONArray(r.targetPackages.toList()))
+        put("delaySeconds", r.delaySeconds)
     }
 
     fun ruleFromJson(o: JSONObject): KeywordRule {
@@ -143,11 +146,21 @@ object PrefsManager {
             wholeWord = o.optBoolean("wholeWord", false),
             caseSensitive = o.optBoolean("caseSensitive", false),
             isAllow = o.optBoolean("isAllow", false),
-            targetPackages = targets
+            targetPackages = targets,
+            // قوانین قدیمی که کلید ندارند، روی «دیلی سراسری» می‌مانند تا رفتارشان عوض نشود.
+            delaySeconds = RuleDelays.sanitize(o.optInt("delaySeconds", RuleDelays.FOLLOW_GLOBAL))
         )
     }
 
     // ---------- تنظیمات ----------
+    /** تم پس‌زمینه: system (خودکار)، light، dark، mint، blue، cream. */
+    fun getTheme(context: Context): String =
+        prefs(context).getString(KEY_THEME, "system") ?: "system"
+
+    fun setTheme(context: Context, theme: String) {
+        prefs(context).edit().putString(KEY_THEME, theme).apply()
+    }
+
     fun getDelaySeconds(context: Context): Int =
         BlockingDelays.sanitize(prefs(context).getInt(KEY_DELAY_SECONDS, BlockingDelays.DEFAULT_SECONDS))
 

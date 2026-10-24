@@ -79,6 +79,39 @@ class SettingsActivity : AppCompatActivity() {
 
         renderSelfProtectionCard()
 
+        column.addView(UiKit.card(this) { c ->
+            c.addView(UiKit.title(this, "رنگ پس‌زمینه", 17f))
+            c.addView(UiKit.body(this, "پس‌زمینه‌ی همه‌ی صفحه‌ها با این رنگ عوض می‌شود."))
+            val themes = listOf(
+                "system" to "خودکار (متناسب با سیستم)",
+                "light" to "روشن",
+                "dark" to "تیره",
+                "mint" to "نعنایی",
+                "blue" to "آبی",
+                "cream" to "کرمی"
+            )
+            val group = RadioGroup(this)
+            themes.forEach { (value, label) ->
+                group.addView(RadioButton(this).apply {
+                    text = label
+                    tag = value
+                    isChecked = PrefsManager.getTheme(this@SettingsActivity) == value
+                })
+            }
+            group.setOnCheckedChangeListener { _, checkedId ->
+                val rb = findViewById<RadioButton>(checkedId)
+                (rb?.tag as? String)?.let {
+                    PrefsManager.setTheme(this, it)
+                    // اعمال در کل برنامه با بازشدن دوباره از داشبورد.
+                    startActivity(Intent(this, com.example.blocker.MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    })
+                    finish()
+                }
+            }
+            c.addView(group)
+        })
+
         column.addView(UiKit.tonalButton(this, "سلامت و تشخیص محافظت") { startActivity(Intent(this, DiagnosticsActivity::class.java)) })
         column.addView(UiKit.tonalButton(this, "بکاپ و بازیابی کانفیگ") { startActivity(Intent(this, BackupActivity::class.java)) })
         column.addView(UiKit.tonalButton(this, "درباره، حریم خصوصی و محدودیت‌ها") { startActivity(Intent(this, AboutActivity::class.java)) })

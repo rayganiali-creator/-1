@@ -10,6 +10,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import com.example.blocker.core.KeywordMatcher
 import com.example.blocker.core.KeywordRule
+import com.example.blocker.core.OwnAppGuard
 import com.example.blocker.core.PendingBlockManager
 import com.example.blocker.core.SelfProtection
 import com.example.blocker.core.SessionMode
@@ -26,7 +27,12 @@ import com.example.blocker.session.SessionManager
  *
  * دیلی: هر تریگر واجد شرایط اول وارد PendingBlockManager می‌شود؛ اگر کانتکست
  * عوض شود اقدام معلق کنسل می‌شود و لحظه‌ی اجرا تطبیق دوباره بررسی می‌شود.
- * دیلی از تنظیمات گرفته می‌شود (در سشن Strict از snapshot سشن).
+ * دیلی برای برنامه/دامنه از تنظیمات سراسری یا سشن می‌آید؛ برای کلمه از تأخیر
+ * خودِ قانون (فوری یا ۱ تا ۵ ثانیه) وگرنه از دیلی سراسری/سشن.
+ *
+ * متن پنجره‌ی خودِ اپ هرگز ارزیابی نمی‌شود (OwnAppGuard: هم پکیج رخداد و هم
+ * پکیج پنجره‌ی فعال چک می‌شود) تا کلمه‌ای که در خودِ اپ دیده می‌شود باعث
+ * بسته شدن اپ نشود.
  *
  * محدودیت صادقانه: فقط متن قابل مشاهده در نودهای accessibility دیده می‌شود؛
  * متن داخل عکس/ویدیو، WebView های خاص و صفحه‌های امن پوشش تضمینی ندارند.
@@ -63,7 +69,9 @@ class BlockAccessibilityService : AccessibilityService() {
         val signature: String,
         val ruleKey: String,
         val message: String,
-        val packageName: String
+        val packageName: String,
+        /** تأخیر بلاک این کاندید بعد از شناسایی؛ برای کلمه از قانون، برای بقیه از دیلی سراسری/سشن. */
+        val delaySeconds: Int
     )
 
     private val handler = Handler(Looper.getMainLooper())
@@ -113,6 +121,11 @@ class BlockAccessibilityService : AccessibilityService() {
         if (packageName == this.packageName) return
         heartbeat()
         maybeCheckSession()
+        // نگهبان پنجره‌ی خودمان: رخداد با پکیج دیگر (مثل پنجره‌ی صفحه‌کلید هنگام
+        // تایپ داخل اپ) در حالی که پنجره‌ی فعال خودِ اپ است، نباید باعث خواندن
+        // متن خودِ اپ و بلاک آن شود.
+        val activeWindowPackage = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
+        if (OwnAppGuard.shouldSkip(packageName, activeWindowPackage, this.packageName)) return
 
         try {
             if (checkSelfProtection(packageName)) return
@@ -126,7 +139,7 @@ class BlockAccessibilityService : AccessibilityService() {
                 return
             }
 
-            if (config.delaySeconds <= 0) {
+            if (candidate.delaySeconds <= 0) {
                 fireBlock(candidate)
                 return
             }
@@ -134,9 +147,9 @@ class BlockAccessibilityService : AccessibilityService() {
             // دیلی واقعی: زمان‌بندی + شمارش معکوس حداقلی
             val now = System.currentTimeMillis()
             val isNew = pendingBlocks.current()?.signature != candidate.signature
-            val pending = pendingBlocks.schedule(candidate.signature, candidate.ruleKey, now, config.delaySeconds)
+            val pending = pendingBlocks.schedule(candidate.signature, candidate.ruleKey, now, candidate.delaySeconds)
             if (isNew) {
-                Toast.makeText(this, "محتوای مسدود شناسایی شد؛ ${config.delaySeconds} ثانیه تا بستن…", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "محتوای مسدود شناسایی شد؛ ${candidate.delaySeconds} ثانیه تا بستن…", Toast.LENGTH_SHORT).show()
             }
             cancelPendingRunnable()
             val delayMs = (pending.fireAtMillis - System.currentTimeMillis()).coerceAtLeast(0L)
@@ -229,9 +242,13 @@ class BlockAccessibilityService : AccessibilityService() {
     }
 
     private fun findCandidate(packageName: String, config: EffectiveConfig): Candidate? {
+        // دفاع دوم: حتی اگر رخداد از جای دیگری آمده باشد (مثلاً بازبینی بلاک معلق
+        // زمان‌دار)، متن پنجره‌ی خودمان هرگز ارزیابی نمی‌شود.
+        val activeWindowPackage = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
+        if (OwnAppGuard.shouldSkip(null, activeWindowPackage, this.packageName)) return null
         // ۱) بلاک برنامه
         if (config.apps.contains(packageName)) {
-            return Candidate("app:$packageName", "app:$packageName", "این برنامه توسط شما مسدود شده است.", packageName)
+            return Candidate("app:$packageName", "app:$packageName", "این برنامه توسط شما مسدود شده است.", packageName, config.delaySeconds)
         }
         val root = rootInActiveWindow ?: return null
         try {
@@ -243,7 +260,7 @@ class BlockAccessibilityService : AccessibilityService() {
                     for (domain in config.websites) {
                         val d = TextNormalizer.normalize(domain)
                         if (d.isNotBlank() && normalizedUrl.contains(d)) {
-                            return Candidate("site:$domain", "site:$domain", "دسترسی به این سایت مسدود شده است.\n($domain)", packageName)
+                            return Candidate("site:$domain", "site:$domain", "دسترسی به این سایت مسدود شده است.\n($domain)", packageName, config.delaySeconds)
                         }
                     }
                 }
@@ -258,7 +275,8 @@ class BlockAccessibilityService : AccessibilityService() {
                         "keyword:${match.rule.id}",
                         "keyword:${match.rule.text}",
                         "این صفحه به دلیل شامل بودن یک کلمه‌ی مسدود شده، بسته شد.",
-                        packageName
+                        packageName,
+                        match.rule.effectiveDelaySeconds(config.delaySeconds)
                     )
                 }
             }

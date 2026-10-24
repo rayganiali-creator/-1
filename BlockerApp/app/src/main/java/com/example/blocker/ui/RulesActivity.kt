@@ -1,9 +1,11 @@
 package com.example.blocker.ui
 
 import android.os.Bundle
+import android.widget.ArrayAdapter
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -11,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.blocker.PrefsManager
 import com.example.blocker.core.KeywordMatcher
 import com.example.blocker.core.KeywordRule
+import com.example.blocker.core.RuleDelays
 import com.example.blocker.session.SessionManager
 import com.google.android.material.switchmaterial.SwitchMaterial
 
@@ -64,6 +67,7 @@ class RulesActivity : AppCompatActivity() {
                 c.addView(sw)
                 val meta = buildString {
                     append("دسته: ${rule.category}")
+                    append(" • تأخیر: ${RuleDelays.labelFa(rule.delaySeconds)}")
                     if (rule.wholeWord) append(" • فقط کلمه‌ی کامل")
                     if (rule.caseSensitive) append(" • حساس به بزرگی حروف")
                     if (rule.isAllow) append(" • قانون اجازه (allowlist)")
@@ -138,10 +142,20 @@ class RulesActivity : AppCompatActivity() {
         val whole = CheckBox(this).apply { text = "فقط تطبیق کلمه‌ی کامل (داخل کلمه‌ی دیگر صدق نکند)"; isChecked = existing?.wholeWord ?: false }
         val caseS = CheckBox(this).apply { text = "حساس به بزرگی/کوچکی حروف لاتین"; isChecked = existing?.caseSensitive ?: false }
         val allow = CheckBox(this).apply { text = "قانون اجازه (allowlist) — بر بلاک غلبه می‌کند"; isChecked = existing?.isAllow ?: false }
+        // تأخیر بلاک این قانون بعد از شناسایی: دیلی سراسری، فوری، یا ۱ تا ۵ ثانیه.
+        val delayOptions = listOf(RuleDelays.FOLLOW_GLOBAL) + RuleDelays.ALLOWED_SECONDS
+        val delaySpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@RulesActivity, android.R.layout.simple_spinner_dropdown_item,
+                delayOptions.map { RuleDelays.labelFa(it) })
+            val initial = RuleDelays.sanitize(existing?.delaySeconds ?: RuleDelays.FOLLOW_GLOBAL)
+            setSelection(delayOptions.indexOf(initial).coerceAtLeast(0))
+        }
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 24, 48, 8)
             addView(textIn); addView(catIn); addView(targetsIn); addView(whole); addView(caseS); addView(allow)
+            addView(TextView(this@RulesActivity).apply { text = "تأخیر بلاک بعد از شناسایی:" })
+            addView(delaySpinner)
         }
         AlertDialog.Builder(this)
             .setTitle(if (existing == null) "قانون جدید" else "ویرایش قانون")
@@ -157,7 +171,8 @@ class RulesActivity : AppCompatActivity() {
                     wholeWord = whole.isChecked,
                     caseSensitive = caseS.isChecked,
                     isAllow = allow.isChecked,
-                    targetPackages = targetsIn.text.toString().split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+                    targetPackages = targetsIn.text.toString().split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet(),
+                    delaySeconds = delayOptions.getOrNull(delaySpinner.selectedItemPosition) ?: RuleDelays.FOLLOW_GLOBAL
                 )
                 if (existing == null) PrefsManager.addRule(this, rule) else PrefsManager.updateRule(this, rule)
                 render()

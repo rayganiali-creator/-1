@@ -17,9 +17,40 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import com.example.blocker.PrefsManager
 import com.example.blocker.R
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+
+/** پالت رنگی برنامه بر اساس انتخاب کاربر برای رنگ پس‌زمینه (تنظیمات > رنگ پس‌زمینه).
+ *  رنگ‌های تأکیدی (primary و...) همان توکن‌های DayNight می‌مانند؛ فقط پس‌زمینه،
+ *  سطح کارت، رنگ متن و خط دور با تم عوض می‌شوند تا خوانایی در هر تم حفظ شود. */
+object ThemePalette {
+    data class Colors(
+        val background: Int,
+        val surface: Int,
+        val onSurface: Int,
+        val onSurfaceVariant: Int,
+        val outline: Int
+    )
+
+    fun resolve(context: Context): Colors {
+        val night = (context.resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        return when (PrefsManager.getTheme(context)) {
+            "dark" -> dark()
+            "light" -> light()
+            "mint" -> Colors(0xFFE7F5EE.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E8DD.toInt())
+            "blue" -> Colors(0xFFEAF1FB.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E0F0.toInt())
+            "cream" -> Colors(0xFFFDF6EC.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFEADFC8.toInt())
+            else -> if (night) dark() else light()
+        }
+    }
+
+    private fun light() = Colors(0xFFF7F8F7.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFDCE3E1.toInt())
+    private fun dark() = Colors(0xFF101314.toInt(), 0xFF181D1E.toInt(), 0xFFE8EAEB.toInt(), 0xFFA8B0B1.toInt(), 0xFF2A3234.toInt())
+}
 
 /** سازنده‌های مشترک UI برنامه‌ای؛ زبان بصری «سد»: کارت‌های گرد ۲۸، گرادیان قهرمان، دکمه‌های قرصی. */
 object UiKit {
@@ -35,7 +66,7 @@ object UiKit {
 
     fun screen(context: Context): Pair<ScrollView, LinearLayout> {
         val scroll = ScrollView(context).apply {
-            setBackgroundColor(ContextCompat.getColor(context, R.color.blocker_background))
+            setBackgroundColor(ThemePalette.resolve(context).background)
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
         val column = LinearLayout(context).apply {
@@ -52,7 +83,7 @@ object UiKit {
         this.text = text
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp)
         setTypeface(typeface, Typeface.BOLD)
-        setTextColor(ContextCompat.getColor(context, R.color.blocker_on_surface))
+        setTextColor(ThemePalette.resolve(context).onSurface)
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { bottomMargin = dp(context, 8) }
     }
@@ -60,7 +91,7 @@ object UiKit {
     fun body(context: Context, text: String, sizeSp: Float = 14f): TextView = TextView(context).apply {
         this.text = text
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp)
-        setTextColor(ContextCompat.getColor(context, R.color.blocker_on_surface_variant))
+        setTextColor(ThemePalette.resolve(context).onSurfaceVariant)
         setLineSpacing(0f, 1.25f)
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { bottomMargin = dp(context, 8) }
@@ -70,8 +101,8 @@ object UiKit {
         val card = MaterialCardView(context).apply {
             radius = dp(context, 28).toFloat()
             cardElevation = dp(context, 1).toFloat()
-            setCardBackgroundColor(ContextCompat.getColor(context, R.color.blocker_surface))
-            strokeColor = ContextCompat.getColor(context, R.color.blocker_outline)
+            setCardBackgroundColor(ThemePalette.resolve(context).surface)
+            strokeColor = ThemePalette.resolve(context).outline
             strokeWidth = dp(context, 1)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { bottomMargin = dp(context, 12) }
@@ -163,13 +194,13 @@ object UiKit {
             text = remainingText
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f)
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(context, R.color.blocker_on_surface))
+            setTextColor(ThemePalette.resolve(context).onSurface)
             gravity = Gravity.CENTER
         })
         center.addView(TextView(context).apply {
             text = subText
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            setTextColor(ContextCompat.getColor(context, R.color.blocker_on_surface_variant))
+            setTextColor(ThemePalette.resolve(context).onSurfaceVariant)
             gravity = Gravity.CENTER
         })
         frame.addView(center)
@@ -178,7 +209,7 @@ object UiKit {
 
     private class RingView(context: Context, private val fraction: Float) : View(context) {
         private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = ContextCompat.getColor(context, R.color.blocker_outline)
+            color = ThemePalette.resolve(context).outline
             style = Paint.Style.STROKE
             strokeWidth = context.resources.displayMetrics.density * 10
         }
@@ -208,8 +239,8 @@ object UiKit {
             val card = MaterialCardView(context).apply {
                 radius = dp(context, 20).toFloat()
                 cardElevation = dp(context, 1).toFloat()
-                setCardBackgroundColor(ContextCompat.getColor(context, R.color.blocker_surface))
-                strokeColor = ContextCompat.getColor(context, R.color.blocker_outline)
+                setCardBackgroundColor(ThemePalette.resolve(context).surface)
+                strokeColor = ThemePalette.resolve(context).outline
                 strokeWidth = dp(context, 1)
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                     if (i > 0) marginStart = dp(context, 8)
@@ -232,7 +263,7 @@ object UiKit {
             inner.addView(TextView(context).apply {
                 text = label
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                setTextColor(ContextCompat.getColor(context, R.color.blocker_on_surface_variant))
+                setTextColor(ThemePalette.resolve(context).onSurfaceVariant)
                 gravity = Gravity.CENTER
             })
             card.addView(inner)
@@ -246,8 +277,8 @@ object UiKit {
         val card = MaterialCardView(context).apply {
             radius = dp(context, 20).toFloat()
             cardElevation = dp(context, 1).toFloat()
-            setCardBackgroundColor(ContextCompat.getColor(context, R.color.blocker_surface))
-            strokeColor = ContextCompat.getColor(context, R.color.blocker_outline)
+            setCardBackgroundColor(ThemePalette.resolve(context).surface)
+            strokeColor = ThemePalette.resolve(context).outline
             strokeWidth = dp(context, 1)
             isClickable = true
             isFocusable = true
@@ -277,7 +308,7 @@ object UiKit {
         inner.addView(TextView(context).apply {
             text = label
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            setTextColor(ContextCompat.getColor(context, R.color.blocker_on_surface))
+            setTextColor(ThemePalette.resolve(context).onSurface)
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { topMargin = dp(context, 8) }
@@ -351,7 +382,7 @@ object UiKit {
     }
 
     fun divider(context: Context): View = View(context).apply {
-        setBackgroundColor(ContextCompat.getColor(context, R.color.blocker_outline))
+        setBackgroundColor(ThemePalette.resolve(context).outline)
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(context, 1))
             .apply { topMargin = dp(context, 6); bottomMargin = dp(context, 10) }
     }

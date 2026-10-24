@@ -1,6 +1,21 @@
 package com.example.blocker.core
 
 /** یک قانون کلمه‌کلیدی نسخه‌دار؛ جایگزین StringSet ساده‌ی قبلی. */
+/** تأخیر بلاکِ هر قانون بعد از شناسایی: ۱- = دنباله‌روی دیلی سراسری/سشن، ۰ = فوری، ۱ تا ۵ = ثانیه. */
+object RuleDelays {
+    const val FOLLOW_GLOBAL = -1
+    val ALLOWED_SECONDS = listOf(0, 1, 2, 3, 4, 5)
+
+    fun sanitize(seconds: Int): Int =
+        if (seconds == FOLLOW_GLOBAL || seconds in ALLOWED_SECONDS) seconds else FOLLOW_GLOBAL
+
+    fun labelFa(seconds: Int): String = when (seconds) {
+        FOLLOW_GLOBAL -> "دیلی سراسری"
+        0 -> "فوری"
+        else -> "$seconds ثانیه"
+    }
+}
+
 data class KeywordRule(
     val id: String,
     val text: String,
@@ -11,8 +26,13 @@ data class KeywordRule(
     /** اگر true باشد، این قانون «اجازه» است و بر بلاک غلبه می‌کند (allowlist). */
     val isAllow: Boolean = false,
     /** پکیج‌هایی که قانون فقط روی آن‌ها اعمال می‌شود؛ خالی = همه‌ی برنامه‌ها. */
-    val targetPackages: Set<String> = emptySet()
-)
+    val targetPackages: Set<String> = emptySet(),
+    /** تأخیر بلاک این قانون بعد از شناسایی؛ ‎-1 یعنی دنباله‌روی دیلی سراسری/سشن. */
+    val delaySeconds: Int = RuleDelays.FOLLOW_GLOBAL
+) {
+    /** تأخیر مؤثر این قانون: مقدار خودش، یا اگر روی «دیلی سراسری» بود، مقدار سراسری/سشن. */
+    fun effectiveDelaySeconds(fallback: Int): Int = if (delaySeconds >= 0) delaySeconds else fallback
+}
 
 /** نتیجه‌ی تطبیق یک قانون با یک متن. */
 data class MatchResult(val rule: KeywordRule, val matchedText: String, val startIndex: Int)

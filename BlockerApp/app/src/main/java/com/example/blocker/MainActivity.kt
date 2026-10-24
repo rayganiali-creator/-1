@@ -25,6 +25,7 @@ import com.example.blocker.ui.RulesActivity
 import com.example.blocker.ui.SchedulesActivity
 import com.example.blocker.ui.SessionActivity
 import com.example.blocker.ui.SettingsActivity
+import com.example.blocker.ui.ThemePalette
 import com.example.blocker.ui.UiKit
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -87,7 +88,7 @@ class MainActivity : AppCompatActivity() {
             text = "سد"
             setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 26f)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.blocker_on_surface))
+            setTextColor(ThemePalette.resolve(this@MainActivity).onSurface)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { marginStart = UiKit.dp(this@MainActivity, 12) }
         })
@@ -98,7 +99,7 @@ class MainActivity : AppCompatActivity() {
             text = "⋮"
             setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 26f)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.blocker_on_surface_variant))
+            setTextColor(ThemePalette.resolve(this@MainActivity).onSurfaceVariant)
             setOnClickListener { v ->
                 val popup = PopupMenu(this@MainActivity, v)
                 popup.menu.add(0, 1, 0, "تشخیص کامل")
