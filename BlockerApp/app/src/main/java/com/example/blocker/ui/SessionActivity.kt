@@ -5,10 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.widget.ArrayAdapter
-import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.RadioButton
-import android.widget.RadioGroup
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -150,30 +147,9 @@ class SessionActivity : AppCompatActivity() {
             adapter = ArrayAdapter(this@SessionActivity, android.R.layout.simple_spinner_dropdown_item,
                 listOf("دستی (بدون پروفایل)") + profiles.map { it.name })
         }
-        // پیش‌فرض‌های مدت: از ۳۰ ثانیه تا ۹۰ روز (بازه‌ی مجاز DurationRange)، در دو ردیف.
-        val presets = listOf(
-            "۳۰ ثانیه" to 30_000L, "۵ دقیقه" to 5 * 60_000L,
-            "۲۵ دقیقه" to 25 * 60_000L, "۱ ساعت" to 3_600_000L,
-            "۱ روز" to 86_400_000L, "۷ روز" to 7 * 86_400_000L,
-            "۳۰ روز" to 30 * 86_400_000L, "۹۰ روز" to 90 * 86_400_000L
-        )
-        val presetButtons = mutableListOf<RadioButton>()
-        fun presetRow(items: List<Pair<String, Long>>): RadioGroup {
-            return RadioGroup(this).apply {
-                orientation = RadioGroup.HORIZONTAL
-                items.forEach { (label, millis) ->
-                    addView(RadioButton(this@SessionActivity).apply {
-                        text = label; tag = millis
-                        if (millis == durationMillis) isChecked = true
-                        presetButtons.add(this)
-                    })
-                }
-            }
-        }
-        val durationGroup1 = presetRow(presets.subList(0, 4))
-        val durationGroup2 = presetRow(presets.subList(4, 8))
-        val customValue = EditText(this).apply {
-            hint = "مدت دلخواه"; inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        // فیلد مدت دلخواه (قبل از چیپ‌ها تعریف می‌شود تا شنونده‌هایشان به آن برسند).
+        val customValue = UiKit.textField(this, "مدت دلخواه").apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         val unitSpinner = Spinner(this).apply {
@@ -185,15 +161,13 @@ class SessionActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             addView(customValue); addView(unitSpinner)
         }
-        val modeGroup = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
-        val rbNormal = RadioButton(this).apply { text = "عادی (Normal)"; isChecked = true }
-        val rbStrict = RadioButton(this).apply { text = "سخت‌گیر (Strict)" }
-        modeGroup.addView(rbNormal); modeGroup.addView(rbStrict)
-        val coolingGroup = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
-        val coolingButtons = CoolingOff.values().map { co ->
-            RadioButton(this).apply { text = "آرام‌سازی خروج: ${co.labelFa}"; tag = co; if (co == cooling) isChecked = true }
-        }
-        coolingButtons.forEach { coolingGroup.addView(it) }
+
+        // همگام‌سازی چیپ‌ها: چون شنونده‌های چیپ قبل از updateSummary ساخته می‌شوند،
+        // بدنه‌ی این لامبداها بعد از تعریف updateSummary پر می‌شود.
+        var refreshDurationChips: () -> Unit = {}
+        var refreshModeChips: () -> Unit = {}
+        var refreshCoolingChips: () -> Unit = {}
+
         val summary = UiKit.body(this, "")
 
         fun currentDurationMillis(): Long {
@@ -215,24 +189,82 @@ class SessionActivity : AppCompatActivity() {
 
         fun updateSummary() {
             val d = currentDurationMillis()
-            val m = if (rbStrict.isChecked) SessionMode.STRICT else SessionMode.NORMAL
-            val co = coolingButtons.firstOrNull { it.isChecked }?.tag as? CoolingOff ?: cooling
+            val m = mode
+            val co = cooling
             val delay = selectedProfile?.delaySeconds ?: PrefsManager.getDelaySeconds(this)
             val validNote = if (DurationRange.isValid(d)) "" else " ⚠ مدت باید بین ۳۰ ثانیه تا ۹۰ روز باشد."
             summary.text = "خلاصه: ${UiKit.formatDuration(d)}، حالت ${if (m == SessionMode.STRICT) "Strict" else "عادی"}، دیلی بلاک $delay ثانیه" +
                 (if (m == SessionMode.STRICT) "، آرام‌سازی خروج ${co.labelFa}، قوانین و تنظیمات در طول سشن قفل می‌شوند." else ".") + validNote
         }
 
+        // پیش‌فرض‌های مدت: از ۳۰ ثانیه تا ۹۰ روز (بازه‌ی مجاز DurationRange)، در دو ردیف چیپ.
+        val presets = listOf(
+            "۳۰ ثانیه" to 30_000L, "۵ دقیقه" to 5 * 60_000L,
+            "۲۵ دقیقه" to 25 * 60_000L, "۱ ساعت" to 3_600_000L,
+            "۱ روز" to 86_400_000L, "۷ روز" to 7 * 86_400_000L,
+            "۳۰ روز" to 30 * 86_400_000L, "۹۰ روز" to 90 * 86_400_000L
+        )
+        val durationChips = mutableListOf<TextView>()
+        fun chipRow(items: List<Pair<String, Long>>): LinearLayout {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            items.forEach { (label, millis) ->
+                val chip = UiKit.chipView(this@SessionActivity, label, millis == durationMillis)
+                chip.tag = millis
+                chip.setOnClickListener {
+                    durationMillis = millis
+                    refreshDurationChips()
+                    customValue.setText("")
+                    updateSummary()
+                }
+                durationChips.add(chip)
+                row.addView(chip)
+            }
+            return row
+        }
+        val durationRow1 = chipRow(presets.subList(0, 4))
+        val durationRow2 = chipRow(presets.subList(4, 8))
+
+        // حالت: دو چیپ عادی / سخت‌گیر.
+        val modeChipNormal = UiKit.chipView(this, "عادی (Normal)", true)
+        val modeChipStrict = UiKit.chipView(this, "سخت‌گیر (Strict)", false)
+        modeChipNormal.setOnClickListener { mode = SessionMode.NORMAL; refreshModeChips(); updateSummary() }
+        modeChipStrict.setOnClickListener { mode = SessionMode.STRICT; refreshModeChips(); updateSummary() }
+        val modeRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(modeChipNormal); addView(modeChipStrict)
+        }
+
+        // آرام‌سازی خروج: سه چیپ با برچسب مدت (فقط در Strict اثر دارد).
+        val coolingChips = CoolingOff.values().map { co ->
+            UiKit.chipView(this, co.labelFa, co == cooling).apply {
+                tag = co
+                setOnClickListener { cooling = co; refreshCoolingChips(); updateSummary() }
+            }
+        }
+        val coolingRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            coolingChips.forEach { addView(it) }
+        }
+
+        refreshDurationChips = { durationChips.forEach { UiKit.setChipSelected(this, it, (it.tag as Long) == durationMillis) } }
+        refreshModeChips = {
+            UiKit.setChipSelected(this, modeChipNormal, mode == SessionMode.NORMAL)
+            UiKit.setChipSelected(this, modeChipStrict, mode == SessionMode.STRICT)
+        }
+        refreshCoolingChips = { coolingChips.forEach { UiKit.setChipSelected(this, it, (it.tag as CoolingOff) == cooling) } }
+
         profileSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, pos: Int, id: Long) {
                 selectedProfile = if (pos == 0) null else profiles[pos - 1]
                 selectedProfile?.let { p ->
                     durationMillis = p.durationMillis
-                    if (p.mode == SessionMode.STRICT) rbStrict.isChecked = true else rbNormal.isChecked = true
-                    coolingButtons.forEach { it.isChecked = (it.tag as CoolingOff) == p.coolingOff }
-                    val matched = presetButtons.firstOrNull { (it.tag as Long) == durationMillis }
-                    presetButtons.forEach { it.isChecked = it == matched }
-                    if (matched == null) {
+                    mode = p.mode
+                    cooling = p.coolingOff
+                    refreshDurationChips()
+                    refreshModeChips()
+                    refreshCoolingChips()
+                    val matched = presets.any { it.second == durationMillis }
+                    if (!matched) {
                         val (v, u) = splitDuration(durationMillis)
                         customValue.setText(v.toString())
                         unitSpinner.setSelection(DurationRange.Unit.values().indexOf(u))
@@ -244,19 +276,9 @@ class SessionActivity : AppCompatActivity() {
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
         }
-        presetButtons.forEach { rb ->
-            rb.setOnClickListener {
-                durationMillis = rb.tag as Long
-                presetButtons.forEach { it.isChecked = it == rb }
-                customValue.setText("")
-                updateSummary()
-            }
-        }
-        modeGroup.setOnCheckedChangeListener { _, _ -> updateSummary() }
-        coolingGroup.setOnCheckedChangeListener { _, _ -> updateSummary() }
         customValue.addTextChangedListener(object : android.text.TextWatcher {
             override fun afterTextChanged(s: android.text.Editable?) {
-                if (!s.isNullOrBlank()) presetButtons.forEach { it.isChecked = false }
+                if (!s.isNullOrBlank()) durationChips.forEach { UiKit.setChipSelected(this@SessionActivity, it, false) }
                 updateSummary()
             }
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -264,7 +286,7 @@ class SessionActivity : AppCompatActivity() {
         })
         unitSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, pos: Int, id: Long) {
-                if (customValue.text.isNotBlank()) presetButtons.forEach { it.isChecked = false }
+                if (customValue.text.isNotBlank()) durationChips.forEach { UiKit.setChipSelected(this@SessionActivity, it, false) }
                 updateSummary()
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
@@ -274,12 +296,13 @@ class SessionActivity : AppCompatActivity() {
             c.addView(UiKit.body(this, "پروفایل"))
             c.addView(profileSpinner)
             c.addView(UiKit.body(this, "مدت سشن (از ۳۰ ثانیه تا ۹۰ روز)"))
-            c.addView(durationGroup1)
-            c.addView(durationGroup2)
+            c.addView(durationRow1)
+            c.addView(durationRow2)
             c.addView(customRow)
             c.addView(UiKit.body(this, "حالت"))
-            c.addView(modeGroup)
-            c.addView(coolingGroup)
+            c.addView(modeRow)
+            c.addView(UiKit.body(this, "آرام‌سازی خروج (فقط در حالت سخت‌گیر)"))
+            c.addView(coolingRow)
             c.addView(summary)
         })
         updateSummary()
@@ -287,8 +310,6 @@ class SessionActivity : AppCompatActivity() {
         column.addView(UiKit.primaryButton(this, "شروع سشن") {
             val d = currentDurationMillis()
             if (!DurationRange.isValid(d)) { Toast.makeText(this, "مدت سشن باید بین ۳۰ ثانیه تا ۹۰ روز باشد", Toast.LENGTH_SHORT).show(); return@primaryButton }
-            mode = if (rbStrict.isChecked) SessionMode.STRICT else SessionMode.NORMAL
-            cooling = coolingButtons.firstOrNull { it.isChecked }?.tag as? CoolingOff ?: cooling
             val delay = selectedProfile?.delaySeconds ?: PrefsManager.getDelaySeconds(this)
             if (!ProtectionHealth.isAccessibilityEnabled(this)) {
                 Toast.makeText(this, "اول سرویس دسترسی را از صفحه‌ی تشخیص فعال کنید؛ بدون آن بلاک اجرا نمی‌شود.", Toast.LENGTH_LONG).show()

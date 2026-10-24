@@ -1,7 +1,6 @@
 package com.example.blocker
 
 import android.content.Intent
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -69,21 +68,12 @@ class MainActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { bottomMargin = UiKit.dp(this@MainActivity, 16) }
         }
-        val logoBox = LinearLayout(this).apply {
-            gravity = Gravity.CENTER
-            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(
-                ContextCompat.getColor(this@MainActivity, R.color.blocker_hero_start),
-                ContextCompat.getColor(this@MainActivity, R.color.blocker_hero_end)
-            )).apply { cornerRadius = UiKit.dp(this@MainActivity, 16).toFloat() }
-            layoutParams = LinearLayout.LayoutParams(UiKit.dp(this@MainActivity, 48), UiKit.dp(this@MainActivity, 48))
-        }
-        logoBox.addView(ImageView(this).apply {
+        appBar.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_shield)
             imageTintList = android.content.res.ColorStateList.valueOf(
-                ContextCompat.getColor(this@MainActivity, R.color.blocker_on_hero))
+                ContextCompat.getColor(this@MainActivity, R.color.blocker_primary))
             layoutParams = LinearLayout.LayoutParams(UiKit.dp(this@MainActivity, 28), UiKit.dp(this@MainActivity, 28))
         })
-        appBar.addView(logoBox)
         appBar.addView(TextView(this).apply {
             text = "سد"
             setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 26f)
@@ -119,15 +109,15 @@ class MainActivity : AppCompatActivity() {
         appBar.addView(menuBtn)
         column.addView(appBar)
 
-        // کارت قهرمان وضعیت محافظت
+        // قرص وضعیت محافظت (مینیمال: نقطه‌ی رنگی + عنوان + زیرنویس)
         val level = ProtectionHealth.protectionLevel(this)
         val a11y = ProtectionHealth.isAccessibilityEnabled(this)
         if (a11y) {
-            column.addView(UiKit.heroCard(this, "محافظت فعال است", level.descriptionFa))
+            column.addView(UiKit.statusPill(this, true, "محافظت فعال است", level.descriptionFa))
         } else {
-            column.addView(UiKit.heroCard(this, "محافظت خاموش است",
-                "سرویس دسترسی خاموش است؛ در این وضعیت هیچ بلاکی اجرا نمی‌شود.",
-                "فعال‌سازی سرویس دسترسی") {
+            column.addView(UiKit.statusPill(this, false, "محافظت خاموش است",
+                "سرویس دسترسی خاموش است؛ در این وضعیت هیچ بلاکی اجرا نمی‌شود."))
+            column.addView(UiKit.tonalButton(this, "فعال‌سازی سرویس دسترسی") {
                 startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
             })
         }
@@ -141,7 +131,21 @@ class MainActivity : AppCompatActivity() {
                 c.addView(UiKit.title(this,
                     if (session.mode == SessionMode.STRICT) "سشن Strict فعال" else "سشن فعال", 18f))
                 c.addView(UiKit.sessionRing(this, faDigits(UiKit.formatDuration(remaining)), "باقی‌مانده", fraction))
-                c.addView(UiKit.body(this, "پروفایل: ${session.profileName}"))
+                // ردیف پایین کارت: چیپ پروفایل + دکمه‌ی مشاهده‌ی سشن
+                val sessionRow = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                sessionRow.addView(UiKit.chipView(this, session.profileName, false).apply {
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                })
+                sessionRow.addView(View(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+                })
+                sessionRow.addView(UiKit.textButton(this, "مشاهده‌ی سشن") {
+                    startActivity(Intent(this, SessionActivity::class.java))
+                })
+                c.addView(sessionRow)
                 if (session.status == com.example.blocker.core.SessionStatus.EXIT_PENDING) {
                     c.addView(UiKit.body(this, "درخواست خروج ثبت شده و محافظت تا پایان آرام‌سازی برقرار است."))
                 }
@@ -159,7 +163,7 @@ class MainActivity : AppCompatActivity() {
         val rules = PrefsManager.getRules(this)
         val appsCount = PrefsManager.getBlockedApps(this).size
         val sitesCount = PrefsManager.getBlockedWebsites(this).size
-        column.addView(UiKit.statsRow(this, listOf(
+        column.addView(UiKit.statsPlainRow(this, listOf(
             faDigits(rules.size.toString()) to "قانون",
             faDigits(appsCount.toString()) to "برنامه",
             faDigits(sitesCount.toString()) to "دامنه"

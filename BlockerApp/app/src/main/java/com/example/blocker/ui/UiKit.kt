@@ -11,15 +11,16 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.appcompat.widget.AppCompatButton
 import androidx.core.content.ContextCompat
 import com.example.blocker.PrefsManager
 import com.example.blocker.R
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 
 /** پالت رنگی برنامه بر اساس انتخاب کاربر برای رنگ پس‌زمینه (تنظیمات > رنگ پس‌زمینه).
@@ -31,7 +32,9 @@ object ThemePalette {
         val surface: Int,
         val onSurface: Int,
         val onSurfaceVariant: Int,
-        val outline: Int
+        val outline: Int,
+        /** خاکستریِ ملایمِ کاشی‌ها و فیلدهای ورودی. */
+        val tile: Int
     )
 
     fun resolve(context: Context): Colors {
@@ -41,15 +44,15 @@ object ThemePalette {
         return when (PrefsManager.getTheme(context)) {
             "dark" -> dark()
             "light" -> light()
-            "mint" -> Colors(0xFFE7F5EE.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E8DD.toInt())
-            "blue" -> Colors(0xFFEAF1FB.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E0F0.toInt())
-            "cream" -> Colors(0xFFFDF6EC.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFEADFC8.toInt())
+            "mint" -> Colors(0xFFE7F5EE.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E8DD.toInt(), 0xFFEAF3EC.toInt())
+            "blue" -> Colors(0xFFEAF1FB.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E0F0.toInt(), 0xFFEBEFF5.toInt())
+            "cream" -> Colors(0xFFFDF6EC.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFEADFC8.toInt(), 0xFFF5EFE2.toInt())
             else -> if (night) dark() else light()
         }
     }
 
-    private fun light() = Colors(0xFFF7F8F7.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFDCE3E1.toInt())
-    private fun dark() = Colors(0xFF101314.toInt(), 0xFF181D1E.toInt(), 0xFFE8EAEB.toInt(), 0xFFA8B0B1.toInt(), 0xFF2A3234.toInt())
+    private fun light() = Colors(0xFFF7F8F7.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFDCE3E1.toInt(), 0xFFF1F3F2.toInt())
+    private fun dark() = Colors(0xFF101314.toInt(), 0xFF181D1E.toInt(), 0xFFE8EAEB.toInt(), 0xFFA8B0B1.toInt(), 0xFF2A3234.toInt(), 0xFF1F2627.toInt())
 }
 
 /** سازنده‌های مشترک UI برنامه‌ای؛ زبان بصری «سد»: کارت‌های گرد ۲۸، گرادیان قهرمان، دکمه‌های قرصی. */
@@ -57,12 +60,6 @@ object UiKit {
 
     fun dp(context: Context, value: Int): Int =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), context.resources.displayMetrics).toInt()
-
-    fun heroGradient(context: Context): GradientDrawable =
-        GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(
-            ContextCompat.getColor(context, R.color.blocker_hero_start),
-            ContextCompat.getColor(context, R.color.blocker_hero_end)
-        )).apply { cornerRadius = dp(context, 28).toFloat() }
 
     fun screen(context: Context): Pair<ScrollView, LinearLayout> {
         val scroll = ScrollView(context).apply {
@@ -99,11 +96,9 @@ object UiKit {
 
     fun card(context: Context, build: (LinearLayout) -> Unit): MaterialCardView {
         val card = MaterialCardView(context).apply {
-            radius = dp(context, 28).toFloat()
-            cardElevation = dp(context, 1).toFloat()
+            radius = dp(context, 24).toFloat()
+            cardElevation = dp(context, 2).toFloat()
             setCardBackgroundColor(ThemePalette.resolve(context).surface)
-            strokeColor = ThemePalette.resolve(context).outline
-            strokeWidth = dp(context, 1)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { bottomMargin = dp(context, 12) }
             useCompatPadding = true
@@ -118,66 +113,9 @@ object UiKit {
         return card
     }
 
-    /** کارت قهرمان گرادیانی داشبورد: سپر + تیتر + زیرنویس + دکمه‌ی سفید اختیاری. */
-    fun heroCard(
-        context: Context,
-        titleText: String,
-        subtitleText: String,
-        buttonText: String? = null,
-        onButtonClick: (() -> Unit)? = null
-    ): LinearLayout {
-        val hero = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            background = heroGradient(context)
-            val pad = dp(context, 20)
-            setPadding(pad, pad, pad, pad)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { bottomMargin = dp(context, 12) }
-        }
-        val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val texts = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        texts.addView(TextView(context).apply {
-            text = titleText
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(context, R.color.blocker_on_hero))
-        })
-        texts.addView(TextView(context).apply {
-            text = subtitleText
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            setTextColor(ContextCompat.getColor(context, R.color.blocker_on_hero))
-            alpha = 0.9f
-        })
-        val shield = ImageView(context).apply {
-            setImageResource(R.drawable.ic_shield)
-            imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.blocker_on_hero))
-            layoutParams = LinearLayout.LayoutParams(dp(context, 56), dp(context, 56))
-                .apply { marginStart = dp(context, 12) }
-        }
-        row.addView(texts)
-        row.addView(shield)
-        hero.addView(row)
-        if (buttonText != null && onButtonClick != null) {
-            hero.addView(MaterialButton(context).apply {
-                text = buttonText
-                backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.blocker_on_hero))
-                setTextColor(ContextCompat.getColor(context, R.color.blocker_primary))
-                cornerRadius = dp(context, 24)
-                minHeight = dp(context, 48)
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                    .apply { topMargin = dp(context, 12) }
-                setOnClickListener { onButtonClick() }
-            })
-        }
-        return hero
-    }
-
     /** حلقه‌ی پیشرفت سشن: کمان + متن وسط (زمان باقی‌مانده و زیرنویس). */
     fun sessionRing(context: Context, remainingText: String, subText: String, fraction: Float): FrameLayout {
-        val size = dp(context, 168)
+        val size = dp(context, 144)
         val frame = FrameLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -192,7 +130,7 @@ object UiKit {
         }
         center.addView(TextView(context).apply {
             text = remainingText
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(ThemePalette.resolve(context).onSurface)
             gravity = Gravity.CENTER
@@ -211,12 +149,12 @@ object UiKit {
         private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = ThemePalette.resolve(context).outline
             style = Paint.Style.STROKE
-            strokeWidth = context.resources.displayMetrics.density * 10
+            strokeWidth = context.resources.displayMetrics.density * 6
         }
         private val progressPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = ContextCompat.getColor(context, R.color.blocker_primary)
             style = Paint.Style.STROKE
-            strokeWidth = context.resources.displayMetrics.density * 10
+            strokeWidth = context.resources.displayMetrics.density * 6
             strokeCap = Paint.Cap.ROUND
         }
         override fun onDraw(canvas: Canvas) {
@@ -228,58 +166,55 @@ object UiKit {
         }
     }
 
-    /** ردیف کارت‌های آمار با عرض مساوی. */
-    fun statsRow(context: Context, items: List<Pair<String, String>>): LinearLayout {
+    /** ردیف آمارِ ساده: عددهای بزرگ با برچسب، جدا شده با خط‌های نازک — بدون جعبه. */
+    fun statsPlainRow(context: Context, items: List<Pair<String, String>>): LinearLayout {
+        val palette = ThemePalette.resolve(context)
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { bottomMargin = dp(context, 12) }
+                .apply { topMargin = dp(context, 12); bottomMargin = dp(context, 12) }
         }
         items.forEachIndexed { i, (value, label) ->
-            val card = MaterialCardView(context).apply {
-                radius = dp(context, 20).toFloat()
-                cardElevation = dp(context, 1).toFloat()
-                setCardBackgroundColor(ThemePalette.resolve(context).surface)
-                strokeColor = ThemePalette.resolve(context).outline
-                strokeWidth = dp(context, 1)
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    if (i > 0) marginStart = dp(context, 8)
-                }
-                useCompatPadding = true
+            if (i > 0) {
+                row.addView(View(context).apply {
+                    setBackgroundColor(palette.outline)
+                    layoutParams = LinearLayout.LayoutParams(dp(context, 1), dp(context, 48)).apply {
+                        val m = dp(context, 10)
+                        setMargins(m, 0, m, 0)
+                    }
+                })
             }
-            val inner = LinearLayout(context).apply {
+            val col = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                val pad = dp(context, 12)
-                setPadding(pad, pad, pad, pad)
+                gravity = Gravity.CENTER_HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             }
-            inner.addView(TextView(context).apply {
+            col.addView(TextView(context).apply {
                 text = value
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
                 setTypeface(typeface, Typeface.BOLD)
-                setTextColor(ContextCompat.getColor(context, R.color.blocker_primary))
+                setTextColor(palette.onSurface)
                 gravity = Gravity.CENTER
             })
-            inner.addView(TextView(context).apply {
+            col.addView(TextView(context).apply {
                 text = label
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                setTextColor(ThemePalette.resolve(context).onSurfaceVariant)
+                setTextColor(palette.onSurfaceVariant)
                 gravity = Gravity.CENTER
             })
-            card.addView(inner)
-            row.addView(card)
+            row.addView(col)
         }
         return row
     }
 
-    /** کاشی بخش‌ها: آیکون در قاب رنگی + برچسب. */
+    /** کاشیِ مینیمال: خاکستریِ ملایم، بدون خط و سایه، آیکونِ خطیِ teal مستقیم روی کاشی. */
     fun tile(context: Context, iconRes: Int, label: String, onClick: () -> Unit): MaterialCardView {
+        val palette = ThemePalette.resolve(context)
         val card = MaterialCardView(context).apply {
             radius = dp(context, 20).toFloat()
-            cardElevation = dp(context, 1).toFloat()
-            setCardBackgroundColor(ThemePalette.resolve(context).surface)
-            strokeColor = ThemePalette.resolve(context).outline
-            strokeWidth = dp(context, 1)
+            cardElevation = 0f
+            setCardBackgroundColor(palette.tile)
             isClickable = true
             isFocusable = true
             rippleColor = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.blocker_primary))
@@ -287,87 +222,85 @@ object UiKit {
         }
         val inner = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            val pad = dp(context, 12)
+            gravity = Gravity.CENTER_HORIZONTAL
+            val pad = dp(context, 16)
             setPadding(pad, pad, pad, pad)
         }
-        val iconBox = LinearLayout(context).apply {
-            gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
-                setColor(ContextCompat.getColor(context, R.color.blocker_primary_container))
-                cornerRadius = dp(context, 16).toFloat()
-            }
-            layoutParams = LinearLayout.LayoutParams(dp(context, 48), dp(context, 48))
-        }
-        iconBox.addView(ImageView(context).apply {
+        inner.addView(ImageView(context).apply {
             setImageResource(iconRes)
             imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.blocker_primary))
-            layoutParams = LinearLayout.LayoutParams(dp(context, 24), dp(context, 24))
+            layoutParams = LinearLayout.LayoutParams(dp(context, 28), dp(context, 28))
         })
-        inner.addView(iconBox)
         inner.addView(TextView(context).apply {
             text = label
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            setTextColor(ThemePalette.resolve(context).onSurface)
+            setTextColor(palette.onSurface)
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { topMargin = dp(context, 8) }
+                .apply { topMargin = dp(context, 10) }
         })
         card.addView(inner)
         card.setOnClickListener { onClick() }
         return card
     }
 
-    fun primaryButton(context: Context, text: String, onClick: () -> Unit): androidx.appcompat.widget.AppCompatButton =
-        androidx.appcompat.widget.AppCompatButton(context).apply {
+    /** دکمه‌ی اصلی: یکدستِ teal، قرصی‌شکل، متن سفید. */
+    fun primaryButton(context: Context, text: String, onClick: () -> Unit): AppCompatButton =
+        AppCompatButton(context).apply {
             this.text = text
-            // AppCompatButton (not MaterialButton) so the gradient drawable is never
-            // replaced by MaterialButton's internal shape background.
-            background = heroGradient(context)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(context, 28).toFloat()
+                setColor(ContextCompat.getColor(context, R.color.blocker_primary))
+            }
             setTextColor(ContextCompat.getColor(context, R.color.blocker_on_hero))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setTypeface(typeface, Typeface.BOLD)
-            minHeight = dp(context, 56)
+            minimumHeight = dp(context, 56)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { bottomMargin = dp(context, 8) }
+                .apply { topMargin = dp(context, 8) }
             setOnClickListener { onClick() }
         }
 
-    fun tonalButton(context: Context, text: String, onClick: () -> Unit): MaterialButton =
-        MaterialButton(context).apply {
-            // Tonal appearance via the app's own M3 tokens: the Material library has no
-            // materialButtonTonalStyle theme attr, so the tint is applied explicitly.
-            backgroundTintList = ColorStateList.valueOf(
-                ContextCompat.getColor(context, R.color.blocker_primary_container)
-            )
+    fun tonalButton(context: Context, text: String, onClick: () -> Unit): AppCompatButton =
+        AppCompatButton(context).apply {
+            this.text = text
+            background = GradientDrawable().apply {
+                cornerRadius = dp(context, 24).toFloat()
+                setColor(ContextCompat.getColor(context, R.color.blocker_primary_container))
+            }
             setTextColor(ContextCompat.getColor(context, R.color.blocker_primary))
-            this.text = text
-            cornerRadius = dp(context, 24)
-            minHeight = dp(context, 52)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setTypeface(typeface, Typeface.BOLD)
+            minimumHeight = dp(context, 52)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { bottomMargin = dp(context, 8) }
+                .apply { topMargin = dp(context, 8) }
             setOnClickListener { onClick() }
         }
 
-    fun textButton(context: Context, text: String, onClick: () -> Unit): MaterialButton =
-        MaterialButton(context).apply {
-            // Text-button appearance explicitly (the Material library has no
-            // materialButtonTextStyle theme attr): transparent background, primary label.
-            backgroundTintList = ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+    fun textButton(context: Context, text: String, onClick: () -> Unit): AppCompatButton =
+        AppCompatButton(context).apply {
+            this.text = text
+            background = null
             setTextColor(ContextCompat.getColor(context, R.color.blocker_primary))
-            strokeWidth = 0
-            elevation = 0f
-            this.text = text
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setTypeface(typeface, Typeface.BOLD)
+            minimumHeight = dp(context, 48)
             setOnClickListener { onClick() }
         }
 
-    fun outlinedButton(context: Context, text: String, onClick: () -> Unit): MaterialButton =
-        MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+    fun outlinedButton(context: Context, text: String, onClick: () -> Unit): AppCompatButton =
+        AppCompatButton(context).apply {
             this.text = text
-            cornerRadius = dp(context, 24)
-            minHeight = dp(context, 52)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(context, 24).toFloat()
+                setColor(android.graphics.Color.TRANSPARENT)
+                setStroke(dp(context, 1), ThemePalette.resolve(context).outline)
+            }
+            setTextColor(ThemePalette.resolve(context).onSurface)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            minimumHeight = dp(context, 52)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { bottomMargin = dp(context, 8) }
+                .apply { topMargin = dp(context, 8) }
             setOnClickListener { onClick() }
         }
 
@@ -396,6 +329,105 @@ object UiKit {
         }))
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
     }
+
+    /** قرص وضعیت محافظت: نقطه‌ی رنگی + عنوان + زیرنویس، روی پس‌زمینه‌ی ملایم
+     *  (سبزِ روشن برای فعال، قرمزِ روشن برای خاموش). */
+    fun statusPill(context: Context, active: Boolean, titleText: String, subtitleText: String): LinearLayout {
+        val bg = if (active) 0xFFE6F4EA.toInt() else 0xFFFDECEA.toInt()
+        val dot = if (active) 0xFF34A853.toInt() else 0xFFD93025.toInt()
+        val pill = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadius = dp(context, 24).toFloat()
+                setColor(bg)
+            }
+            val p = dp(context, 16)
+            setPadding(p, p, p, p)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                .apply { bottomMargin = dp(context, 12) }
+        }
+        val dotView = View(context).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(dot)
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(context, 8), dp(context, 8)).apply {
+                marginEnd = dp(context, 8)
+            }
+        }
+        val texts = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        texts.addView(TextView(context).apply {
+            text = titleText
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(0xFF1B1D1E.toInt())
+        })
+        texts.addView(TextView(context).apply {
+            text = subtitleText
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextColor(0xFF5A6363.toInt())
+        })
+        pill.addView(dotView)
+        pill.addView(texts)
+        return pill
+    }
+
+    /** چیپ انتخاب (بدون شنونده؛ فراخواننده خودش setOnClickListener می‌گذارد). */
+    fun chipView(context: Context, label: String, selected: Boolean): TextView {
+        val chip = TextView(context).apply {
+            text = label
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            gravity = Gravity.CENTER
+            val hp = dp(context, 12)
+            val vp = dp(context, 10)
+            setPadding(hp, vp, hp, vp)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                val m = dp(context, 4)
+                setMargins(m, m, m, m)
+            }
+        }
+        setChipSelected(context, chip, selected)
+        return chip
+    }
+
+    /** چیپ انتخاب با شنونده‌ی آماده. */
+    fun chip(context: Context, label: String, selected: Boolean, onClick: () -> Unit): TextView =
+        chipView(context, label, selected).apply { setOnClickListener { onClick() } }
+
+    /** رنگ چیپ را با وضعیت انتخاب همگام می‌کند (انتخابی: teal ملایم + متن tealِ پررنگ). */
+    fun setChipSelected(context: Context, chip: TextView, selected: Boolean) {
+        val palette = ThemePalette.resolve(context)
+        chip.background = GradientDrawable().apply {
+            cornerRadius = dp(context, 24).toFloat()
+            setColor(
+                if (selected) ContextCompat.getColor(context, R.color.blocker_primary_container)
+                else palette.tile
+            )
+        }
+        chip.setTextColor(
+            if (selected) ContextCompat.getColor(context, R.color.blocker_primary)
+            else palette.onSurface
+        )
+        chip.setTypeface(chip.typeface, if (selected) Typeface.BOLD else Typeface.NORMAL)
+    }
+
+    /** فیلد ورودیِ مینیمال: پس‌زمینه‌ی خاکستریِ ملایم، بدون خط زیرین. */
+    fun textField(context: Context, hint: String): EditText =
+        EditText(context).apply {
+            this.hint = hint
+            background = GradientDrawable().apply {
+                cornerRadius = dp(context, 16).toFloat()
+                setColor(ThemePalette.resolve(context).tile)
+            }
+            val hp = dp(context, 16)
+            val vp = dp(context, 14)
+            setPadding(hp, vp, hp, vp)
+            setTextColor(ThemePalette.resolve(context).onSurface)
+            setHintTextColor(ThemePalette.resolve(context).onSurfaceVariant)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                .apply { bottomMargin = dp(context, 8) }
+        }
 
     fun formatDuration(millis: Long): String {
         val totalSec = (millis / 1000L).coerceAtLeast(0L)

@@ -4,10 +4,15 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- سپرِ خطیِ سفید؛ دیواره‌ی سد (مستطیلِ گردِ سفید) روی آن می‌نشیند و خط سپر را قطع می‌کند. -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M54,26 L30,38 L30,56 C30,68 40,77 54,82 C68,77 78,68 78,56 L78,38 Z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,20 L80,32 V54 C80,72 68,84 54,90 C40,84 28,72 28,54 V32 Z" />
-    <path
-        android:fillColor="#E53935"
-        android:pathData="M40,50 L68,50 L68,58 L40,58 Z" />
+        android:pathData="M27,50 h54 a3,3 0 0 1 3,3 v4 a3,3 0 0 1 -3,3 h-54 a3,3 0 0 1 -3,-3 v-4 a3,3 0 0 1 3,-3 Z" />
 </vector>

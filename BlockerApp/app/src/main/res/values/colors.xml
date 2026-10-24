@@ -23,7 +23,5 @@
     <color name="blocker_blocked_bg">#8C2B23</color>
 
     <!-- گرادیان کارت قهرمان داشبورد — حالت روشن -->
-    <color name="blocker_hero_start">#5EEAD4</color>
-    <color name="blocker_hero_end">#2DD4BF</color>
     <color name="blocker_on_hero">#FFFFFF</color>
 </resources>
