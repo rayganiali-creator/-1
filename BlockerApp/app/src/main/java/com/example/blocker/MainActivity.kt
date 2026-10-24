@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.blocker.core.SessionMode
 import com.example.blocker.health.ProtectionHealth
+import com.example.blocker.service.SessionForegroundService
 import com.example.blocker.session.SessionManager
 import com.example.blocker.ui.AboutActivity
 import com.example.blocker.ui.DiagnosticsActivity
@@ -53,6 +54,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // احیای سرویس: اگر سشن فعال است ولی سرویس پیش‌زمینه مرده (مثلاً سامسونگ
+        // کشته باشد)، با باز شدن اپ دوباره بالا بیاید؛ وگرنه نوتیفیکیشن، ویجت
+        // زنده و نگهبان خاموشی سرویس تا باز شدن بعدی اپ خاموش می‌مانند.
+        if (SessionManager.activeSession(this) != null && !SessionForegroundService.running) {
+            SessionForegroundService.start(this)
+        }
         render()
         startTicker()
         SessionWidgetUpdater.updateAll(this)

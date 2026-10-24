@@ -50,7 +50,14 @@ class SessionActivity : AppCompatActivity() {
         render()
     }
 
-    override fun onResume() { super.onResume(); startTicker(); SessionWidgetUpdater.updateAll(this) }
+    override fun onResume() {
+        super.onResume()
+        // احیای سرویس مثل داشبورد: سشن فعال + سرویس مرده = روشن‌کردن دوباره.
+        if (SessionManager.activeSession(this) != null && !SessionForegroundService.running) {
+            SessionForegroundService.start(this)
+        }
+        startTicker(); SessionWidgetUpdater.updateAll(this)
+    }
     override fun onPause() {
         super.onPause()
         ticking = false
