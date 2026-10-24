@@ -1,0 +1,41 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="240"
+    android:viewportHeight="240">
+    <!-- خرس ایجنت «سد» — نشسته و دست تکان می‌دهد (موکاپ صفحه‌ی بلاک). -->
+    <!-- پاها -->
+    <path android:fillColor="#B07A4A" android:pathData="M64,218 a20,12 0 1,0 40,0 a20,12 0 1,0 -40,0" />
+    <path android:fillColor="#B07A4A" android:pathData="M136,218 a20,12 0 1,0 40,0 a20,12 0 1,0 -40,0" />
+    <!-- بازوی در حال تکان دادن -->
+    <path android:fillColor="#00000000" android:strokeColor="#B07A4A" android:strokeWidth="26" android:strokeLineCap="round" android:pathData="M72,150 Q56,128 52,102" />
+    <!-- گوش‌ها -->
+    <path android:fillColor="#B07A4A" android:pathData="M54,40 a18,18 0 1,0 36,0 a18,18 0 1,0 -36,0" />
+    <path android:fillColor="#B07A4A" android:pathData="M150,40 a18,18 0 1,0 36,0 a18,18 0 1,0 -36,0" />
+    <path android:fillColor="#E8C39A" android:pathData="M63,40 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    <path android:fillColor="#E8C39A" android:pathData="M159,40 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    <!-- بدن و شکم -->
+    <path android:fillColor="#B07A4A" android:pathData="M58,170 a62,52 0 1,0 124,0 a62,52 0 1,0 -124,0" />
+    <path android:fillColor="#E8C39A" android:pathData="M84,180 a36,30 0 1,0 72,0 a36,30 0 1,0 -72,0" />
+    <!-- سر -->
+    <path android:fillColor="#B07A4A" android:pathData="M62,82 a58,58 0 1,0 116,0 a58,58 0 1,0 -116,0" />
+    <!-- گونه‌های سرخ -->
+    <path android:fillColor="#E88A7A" android:fillAlpha="0.5" android:pathData="M58,96 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0" />
+    <path android:fillColor="#E88A7A" android:fillAlpha="0.5" android:pathData="M166,96 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0" />
+    <!-- پوزه -->
+    <path android:fillColor="#E8C39A" android:pathData="M92,100 a28,20 0 1,0 56,0 a28,20 0 1,0 -56,0" />
+    <!-- چشم‌ها + برق چشم -->
+    <path android:fillColor="#2B1D12" android:pathData="M89,72 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+    <path android:fillColor="#2B1D12" android:pathData="M137,72 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M97,69 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M145,69 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0" />
+    <!-- بینی و دهان -->
+    <path android:fillColor="#2B1D12" android:pathData="M110,90 a10,7 0 1,0 20,0 a10,7 0 1,0 -20,0" />
+    <path android:fillColor="#00000000" android:strokeColor="#2B1D12" android:strokeWidth="3" android:strokeLineCap="round" android:pathData="M120,97 L120,105 M120,105 Q112,112 104,107 M120,105 Q128,112 136,107" />
+    <!-- پنجه‌ی در حال تکان دادن -->
+    <path android:fillColor="#B07A4A" android:pathData="M32,92 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0" />
+    <path android:fillColor="#E8C39A" android:pathData="M43,98 a9,7 0 1,0 18,0 a9,7 0 1,0 -18,0" />
+    <path android:fillColor="#E8C39A" android:pathData="M41,84 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+    <path android:fillColor="#E8C39A" android:pathData="M49,80 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+    <path android:fillColor="#E8C39A" android:pathData="M57,84 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+</vector>

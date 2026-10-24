@@ -46,14 +46,9 @@ object ThemePalette {
     )
 
     fun resolve(context: Context): Colors {
-        return when (PrefsManager.getTheme(context)) {
-            "light" -> light()
-            "mint" -> Colors(0xFFE7F5EE.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E8DD.toInt(), 0xFFEAF3EC.toInt(), 0xFF0E9F76.toInt(), 0xFFD9F5EA.toInt(), 0xFFFFFFFF.toInt())
-            "blue" -> Colors(0xFFEAF1FB.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E0F0.toInt(), 0xFFEBEFF5.toInt(), 0xFF2B7CD3.toInt(), 0xFFDFEBF9.toInt(), 0xFFFFFFFF.toInt())
-            "cream" -> Colors(0xFFFDF6EC.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFEADFC8.toInt(), 0xFFF5EFE2.toInt(), 0xFF0E9F76.toInt(), 0xFFEAF3EC.toInt(), 0xFFFFFFFF.toInt())
-            // «خودکار» و «تیره» هر دو تیره‌ی بازطراحی‌اند.
-            else -> dark()
-        }
+        // طرح تأییدشده فقط تیره است؛ تم روشن/کرمی از برنامه حذف شده است.
+        // «رنگ پس‌زمینه» در تنظیمات حالا رنگ صفحه‌ی بلاک است، نه تم برنامه.
+        return dark()
     }
 
     private fun light() = Colors(0xFFF4F6F5.toInt(), 0xFFFFFFFF.toInt(), 0xFF14181D.toInt(), 0xFF5A6363.toInt(), 0xFFE2E8E6.toInt(), 0xFFEEF2F0.toInt(), 0xFF0E9F76.toInt(), 0xFFD9F5EA.toInt(), 0xFFFFFFFF.toInt())

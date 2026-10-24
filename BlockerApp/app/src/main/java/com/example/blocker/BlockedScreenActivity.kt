@@ -7,10 +7,8 @@ import android.view.animation.OvershootInterpolator
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.example.blocker.databinding.ActivityBlockedScreenBinding
-import com.example.blocker.session.SessionManager
-import com.example.blocker.ui.UiKit
 
-/** صفحه‌ای که وقتی چیزی مسدود شد نشان داده می‌شود. */
+/** صفحه‌ای که وقتی چیزی مسدود شد نشان داده می‌شود (موکاپ: سپر + خرس + دکمه‌ی بازگشت). */
 class BlockedScreenActivity : AppCompatActivity() {
 
     companion object {
@@ -29,12 +27,11 @@ class BlockedScreenActivity : AppCompatActivity() {
             binding.txtMessage.text = message
         }
 
-        val session = SessionManager.activeSession(this)
-        if (session != null) {
-            binding.txtSessionInfo.text = "سشن فوکوس فعال است — زمان باقی‌مانده: " +
-                UiKit.formatDuration(SessionManager.remainingMillis(this, session))
-            binding.txtSessionInfo.visibility = android.view.View.VISIBLE
-        }
+        // رنگ پس‌زمینه از تنظیمات (پیش‌فرض آبی نفتی)؛ روی توکن ایستا می‌نشیند
+        // تا انتخاب کاربر — در هر دو حالت روز و شب — اعمال شود.
+        val bg = PrefsManager.getBlockedBg(this)
+        binding.root.setBackgroundColor(bg)
+        window.statusBarColor = bg
 
         binding.btnBackHome.setOnClickListener { goHome() }
 

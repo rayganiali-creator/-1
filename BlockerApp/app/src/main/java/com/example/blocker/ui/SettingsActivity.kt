@@ -81,35 +81,40 @@ class SettingsActivity : AppCompatActivity() {
 
         column.addView(UiKit.card(this) { c ->
             c.addView(UiKit.title(this, "رنگ پس‌زمینه", 17f))
-            c.addView(UiKit.body(this, "پس‌زمینه‌ی همه‌ی صفحه‌ها با این رنگ عوض می‌شود."))
-            val themes = listOf(
-                "system" to "تیره (پیش‌فرض)",
-                "light" to "روشن",
-                "dark" to "تیره",
-                "mint" to "نعنایی",
-                "blue" to "آبی",
-                "cream" to "کرمی"
+            c.addView(UiKit.body(this, "این رنگ به عنوان پس‌زمینه‌ی صفحه‌ی بلاک استفاده می‌شود."))
+            val dots = listOf(
+                0xFF102A43.toInt(),
+                0xFF1E3A8A.toInt(),
+                0xFF4C1D95.toInt(),
+                0xFF7C2D12.toInt(),
+                0xFF14181D.toInt()
             )
-            val group = RadioGroup(this)
-            themes.forEach { (value, label) ->
-                group.addView(RadioButton(this).apply {
-                    text = label
-                    tag = value
-                    isChecked = PrefsManager.getTheme(this@SettingsActivity) == value
-                })
+            val selected = PrefsManager.getBlockedBg(this)
+            val row = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
             }
-            group.setOnCheckedChangeListener { _, checkedId ->
-                val rb = findViewById<RadioButton>(checkedId)
-                (rb?.tag as? String)?.let {
-                    PrefsManager.setTheme(this, it)
-                    // اعمال در کل برنامه با بازشدن دوباره از داشبورد.
-                    startActivity(Intent(this, com.example.blocker.MainActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    })
-                    finish()
+            dots.forEach { color ->
+                val dot = android.view.View(this).apply {
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                        setColor(color)
+                        if (color == selected) {
+                            setStroke(UiKit.dp(this@SettingsActivity, 3), 0xFF7CFFD9.toInt())
+                        }
+                    }
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        UiKit.dp(this@SettingsActivity, 44),
+                        UiKit.dp(this@SettingsActivity, 44)
+                    ).apply { marginEnd = UiKit.dp(this@SettingsActivity, 12) }
+                    setOnClickListener {
+                        PrefsManager.setBlockedBg(this@SettingsActivity, color)
+                        recreate()
+                    }
                 }
+                row.addView(dot)
             }
-            c.addView(group)
+            c.addView(row)
         })
 
         column.addView(UiKit.tonalButton(this, "سلامت و تشخیص محافظت") { startActivity(Intent(this, DiagnosticsActivity::class.java)) })

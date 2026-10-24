@@ -8,39 +8,46 @@
     android:padding="32dp">
 
     <ImageView
-        android:id="@+id/imgBear"
-        android:layout_width="140dp"
-        android:layout_height="140dp"
-        android:src="@drawable/bear_agent"
-        android:layout_marginBottom="16dp" />
+        android:id="@+id/imgShield"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:src="@drawable/shield_outline_mint"
+        android:layout_marginBottom="24dp" />
 
-    <TextView
-        android:id="@+id/txtSessionInfo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:textColor="@color/white"
-        android:textSize="14sp"
-        android:visibility="gone"
-        android:layout_marginBottom="12dp" />
+    <ImageView
+        android:id="@+id/imgBear"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:src="@drawable/bear_agent_full"
+        android:layout_marginBottom="24dp" />
 
     <TextView
         android:id="@+id/txtMessage"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:text="این محتوا مسدود شده است"
+        android:text="این محتوا مسدود است"
         android:textColor="@color/white"
-        android:textSize="20sp"
+        android:textSize="24sp"
         android:textStyle="bold"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="سد از تو محافظت می‌کند"
+        android:textColor="@color/blocker_on_surface_variant"
+        android:textSize="14sp"
         android:layout_marginBottom="32dp" />
 
     <Button
         android:id="@+id/btnBackHome"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="بازگشت به صفحه اصلی"
-        android:backgroundTint="@color/blocker_mint"
-        android:textColor="@color/blocker_ink" />
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="بازگشت"
+        android:background="@drawable/btn_mint_pill"
+        android:textColor="@color/blocker_ink"
+        android:textSize="16sp" />
 
 </LinearLayout>

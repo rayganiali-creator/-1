@@ -37,6 +37,7 @@ object PrefsManager {
     private const val KEY_LAST_DIAGNOSTIC = "last_diagnostic_at"
     private const val KEY_SELF_PROTECTION = "self_protection_enabled"
     private const val KEY_THEME = "theme"
+    private const val KEY_BLOCKED_BG = "blocked_bg"
 
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -160,6 +161,14 @@ object PrefsManager {
 
     fun setTheme(context: Context, theme: String) {
         prefs(context).edit().putString(KEY_THEME, theme).apply()
+    }
+
+    /** رنگ پس‌زمینه‌ی صفحه‌ی بلاک (پیش‌فرض: آبی نفتی)؛ از تنظیمات انتخاب می‌شود. */
+    fun getBlockedBg(context: Context): Int =
+        prefs(context).getInt(KEY_BLOCKED_BG, 0xFF102A43.toInt())
+
+    fun setBlockedBg(context: Context, color: Int) {
+        prefs(context).edit().putInt(KEY_BLOCKED_BG, color).apply()
     }
 
     fun getDelaySeconds(context: Context): Int =
