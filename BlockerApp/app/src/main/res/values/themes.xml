@@ -1,5 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.Blocker" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:fontFamily">@font/vazirmatn</item>
+        <item name="fontFamily">@font/vazirmatn</item>
         <item name="colorPrimary">@color/blocker_primary</item>
         <item name="colorOnPrimary">@color/blocker_on_primary</item>
         <item name="colorPrimaryContainer">@color/blocker_primary_container</item>
@@ -14,8 +16,9 @@
         <item name="android:statusBarColor">@color/blocker_background</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
-
     <style name="Theme.Blocker.Blocked" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:fontFamily">@font/vazirmatn</item>
+        <item name="fontFamily">@font/vazirmatn</item>
         <item name="android:windowBackground">@color/blocker_blocked_bg</item>
         <item name="android:statusBarColor">@color/blocker_blocked_bg</item>
     </style>
