@@ -1,15 +1,12 @@
 package com.example.blocker.ui
 
 import android.os.Bundle
-import android.widget.ArrayAdapter
-import android.widget.CheckBox
-import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.example.blocker.PrefsManager
 import com.example.blocker.core.KeywordMatcher
 import com.example.blocker.core.KeywordRule
@@ -48,32 +45,40 @@ class RulesActivity : AppCompatActivity() {
             })
         }
 
-        column.addView(UiKit.row(this,
-            UiKit.title(this, "کلمات و عبارات", 19f),
-            TextView(this)
-        ))
+        column.addView(UiKit.title(this, "کلمات و عبارات", 19f))
+        column.addView(UiKit.body(this, "هر کلمه یا عبارتی که روی صفحه دیده شود، سد صفحه را می‌بندد. با کلید کنار هر قانون می‌توانی آن را موقتاً خاموش کنی."))
         val rules = PrefsManager.getRules(this)
-        if (rules.isEmpty()) column.addView(UiKit.body(this, "هنوز قانونی ثبت نشده است."))
+        if (rules.isEmpty()) column.addView(UiKit.card(this) { c ->
+            c.addView(UiKit.body(this, "هنوز قانونی ثبت نشده است. اولین کلمه را اضافه کن تا سد جلویش را بگیرد."))
+        })
         rules.forEach { rule ->
             column.addView(UiKit.card(this) { c ->
                 val sw = SwitchMaterial(this).apply {
                     isChecked = rule.enabled
                     text = rule.text
+                    textSize = 16f
                     isEnabled = !locked
                     setOnCheckedChangeListener { _, checked ->
                         if (!guardLocked()) PrefsManager.updateRule(this@RulesActivity, rule.copy(enabled = checked))
                     }
                 }
                 c.addView(sw)
-                val meta = buildString {
-                    append("دسته: ${rule.category}")
-                    append(" • تأخیر: ${RuleDelays.labelFa(rule.delaySeconds)}")
-                    if (rule.wholeWord) append(" • فقط کلمه‌ی کامل")
-                    if (rule.caseSensitive) append(" • حساس به بزرگی حروف")
-                    if (rule.isAllow) append(" • قانون اجازه (allowlist)")
-                    if (rule.targetPackages.isNotEmpty()) append(" • فقط: ${rule.targetPackages.joinToString(", ")}")
+                val chipsRow1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                chipsRow1.addView(UiKit.miniChip(this, rule.category))
+                chipsRow1.addView(UiKit.miniChip(this, "تأخیر: ${RuleDelays.labelFa(rule.delaySeconds)}"))
+                c.addView(chipsRow1)
+                val optional = mutableListOf<String>()
+                if (rule.wholeWord) optional.add("فقط کلمه‌ی کامل")
+                if (rule.caseSensitive) optional.add("حساس به بزرگی حروف")
+                if (rule.isAllow) optional.add("قانون اجازه")
+                if (optional.isNotEmpty()) {
+                    val chipsRow2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                    optional.forEach { chipsRow2.addView(UiKit.miniChip(this, it)) }
+                    c.addView(chipsRow2)
                 }
-                c.addView(UiKit.body(this, meta, 12f))
+                if (rule.targetPackages.isNotEmpty()) {
+                    c.addView(UiKit.body(this, "فقط در: ${rule.targetPackages.joinToString("، ")}", 12f))
+                }
                 val btns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
                 btns.addView(UiKit.textButton(this, "ویرایش") { if (!guardLocked()) showRuleDialog(rule) }.apply { isEnabled = !locked })
                 btns.addView(UiKit.textButton(this, "حذف") {
@@ -93,7 +98,7 @@ class RulesActivity : AppCompatActivity() {
         column.addView(UiKit.card(this) { c ->
             c.addView(UiKit.title(this, "پیش‌نمایش تطبیق", 17f))
             c.addView(UiKit.body(this, "یک متن نمونه بنویسید تا ببینید کدام قانون‌ها رویش صدق می‌کنند (قبل از فعال‌سازی)."))
-            val sample = EditText(this).apply { hint = "متن نمونه…" }
+            val sample = UiKit.textField(this, "متن نمونه…")
             val result = UiKit.body(this, "")
             c.addView(sample)
             c.addView(UiKit.tonalButton(this, "بررسی") {
@@ -110,13 +115,15 @@ class RulesActivity : AppCompatActivity() {
         if (sites.isEmpty()) column.addView(UiKit.body(this, "دامنه‌ای ثبت نشده است."))
         sites.sorted().forEach { domain ->
             column.addView(UiKit.card(this) { c ->
-                c.addView(UiKit.row(this, UiKit.body(this, domain, 15f),
+                c.addView(UiKit.row(this, UiKit.title(this, domain, 15f),
                     UiKit.textButton(this, "حذف") {
                         if (!guardLocked()) { PrefsManager.removeBlockedWebsite(this@RulesActivity, domain); render() }
                     }.apply { isEnabled = !locked }))
             })
         }
-        val domainInput = EditText(this).apply { hint = "example.com"; inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI }
+        val domainInput = UiKit.textField(this, "example.com").apply {
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI
+        }
         column.addView(domainInput)
         column.addView(UiKit.tonalButton(this, "افزودن دامنه") {
             if (guardLocked()) return@tonalButton
@@ -133,29 +140,59 @@ class RulesActivity : AppCompatActivity() {
     }
 
     private fun showRuleDialog(existing: KeywordRule?) {
-        val textIn = EditText(this).apply { hint = "کلمه یا عبارت"; setText(existing?.text ?: "") }
-        val catIn = EditText(this).apply { hint = "دسته"; setText(existing?.category ?: "عمومی") }
-        val targetsIn = EditText(this).apply {
-            hint = "محدود به پکیج‌ها (با کاما، اختیاری)"
-            setText(existing?.targetPackages?.joinToString(",") ?: "")
-        }
-        val whole = CheckBox(this).apply { text = "فقط تطبیق کلمه‌ی کامل (داخل کلمه‌ی دیگر صدق نکند)"; isChecked = existing?.wholeWord ?: false }
-        val caseS = CheckBox(this).apply { text = "حساس به بزرگی/کوچکی حروف لاتین"; isChecked = existing?.caseSensitive ?: false }
-        val allow = CheckBox(this).apply { text = "قانون اجازه (allowlist) — بر بلاک غلبه می‌کند"; isChecked = existing?.isAllow ?: false }
-        // تأخیر بلاک این قانون بعد از شناسایی: دیلی سراسری، فوری، یا ۱ تا ۵ ثانیه.
-        val delayOptions = listOf(RuleDelays.FOLLOW_GLOBAL) + RuleDelays.ALLOWED_SECONDS
-        val delaySpinner = Spinner(this).apply {
-            adapter = ArrayAdapter(this@RulesActivity, android.R.layout.simple_spinner_dropdown_item,
-                delayOptions.map { RuleDelays.labelFa(it) })
-            val initial = RuleDelays.sanitize(existing?.delaySeconds ?: RuleDelays.FOLLOW_GLOBAL)
-            setSelection(delayOptions.indexOf(initial).coerceAtLeast(0))
-        }
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 24, 48, 8)
-            addView(textIn); addView(catIn); addView(targetsIn); addView(whole); addView(caseS); addView(allow)
-            addView(TextView(this@RulesActivity).apply { text = "تأخیر بلاک بعد از شناسایی:" })
-            addView(delaySpinner)
+        }
+        val textIn = UiKit.textField(this, "کلمه یا عبارت").apply { setText(existing?.text ?: "") }
+        val catIn = UiKit.textField(this, "دسته").apply { setText(existing?.category ?: "عمومی") }
+        val targetsIn = UiKit.textField(this, "محدود به پکیج‌ها (با کاما، اختیاری)").apply {
+            setText(existing?.targetPackages?.joinToString(",") ?: "")
+        }
+        box.addView(textIn); box.addView(catIn); box.addView(targetsIn)
+        fun switchOption(label: String, initial: Boolean): SwitchMaterial {
+            val sw = SwitchMaterial(this).apply { isChecked = initial }
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                addView(UiKit.body(this@RulesActivity, label).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                addView(sw)
+            }
+            box.addView(row)
+            return sw
+        }
+        val whole = switchOption("فقط تطبیق کلمه‌ی کامل (داخل کلمه‌ی دیگر صدق نکند)", existing?.wholeWord ?: false)
+        val caseS = switchOption("حساس به بزرگی/کوچکی حروف لاتین", existing?.caseSensitive ?: false)
+        val allow = switchOption("قانون اجازه (allowlist) — بر بلاک غلبه می‌کند", existing?.isAllow ?: false)
+        box.addView(UiKit.body(this, "تأخیر بلاک بعد از شناسایی:", 13f))
+        // تأخیر بلاک این قانون بعد از شناسایی: دیلی سراسری، فوری، یا ۱ تا ۵ ثانیه —
+        // به‌صورت ردیف‌های تک‌انتخابی (به‌جای اسپینر)، با تیک تیل برای گزینه‌ی انتخاب‌شده.
+        val delayOptions = listOf(RuleDelays.FOLLOW_GLOBAL) + RuleDelays.ALLOWED_SECONDS
+        var selectedDelay = RuleDelays.sanitize(existing?.delaySeconds ?: RuleDelays.FOLLOW_GLOBAL)
+        val checkViews = mutableListOf<TextView>()
+        delayOptions.forEach { opt ->
+            val check = TextView(this).apply {
+                text = if (opt == selectedDelay) "✓" else ""
+                textSize = 16f
+                setTextColor(ContextCompat.getColor(this@RulesActivity, com.example.blocker.R.color.blocker_primary))
+            }
+            checkViews.add(check)
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(0, 12, 0, 12)
+                addView(UiKit.body(this@RulesActivity, RuleDelays.labelFa(opt)).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                addView(check)
+                setOnClickListener {
+                    selectedDelay = opt
+                    delayOptions.forEachIndexed { i, o -> checkViews[i].text = if (o == selectedDelay) "✓" else "" }
+                }
+            }
+            box.addView(row)
         }
         AlertDialog.Builder(this)
             .setTitle(if (existing == null) "قانون جدید" else "ویرایش قانون")
@@ -172,7 +209,7 @@ class RulesActivity : AppCompatActivity() {
                     caseSensitive = caseS.isChecked,
                     isAllow = allow.isChecked,
                     targetPackages = targetsIn.text.toString().split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet(),
-                    delaySeconds = delayOptions.getOrNull(delaySpinner.selectedItemPosition) ?: RuleDelays.FOLLOW_GLOBAL
+                    delaySeconds = selectedDelay
                 )
                 if (existing == null) PrefsManager.addRule(this, rule) else PrefsManager.updateRule(this, rule)
                 render()

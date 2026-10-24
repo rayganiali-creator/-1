@@ -62,18 +62,34 @@ class OnboardingActivity : AppCompatActivity() {
             "برای اینکه سد دقیق کار کند، فقط چند دسترسی لازم است. هر قدم را به ترتیب انجام بده؛ " +
             "وضعیت هر قدم همین‌جا زنده چک می‌شود و با برگشت از تنظیمات تازه می‌شود."))
 
-        // قدم ۱ — سرویس دسترسی (ضروری)
+        // قدم ۱ — سرویس دسترسی (ضروری) + قفل «تنظیمات محدودشده» برای اپ‌های سایدلودشده.
+        // چون سد از فروشگاه نصب نشده، اندروید ۱۳ به بعد اول جلوی فعال‌سازی سرویس را
+        // می‌گیرد: دکمه خاکستری می‌ماند و موقع زدن رویش پیام «نمی‌شود» می‌بینی. راه‌حل
+        // این است که اول Allow restricted settings را از اطلاعات برنامه فعال کنی و بعد
+        // برگردی سراغ دکمه‌ی سرویس — ترتیب مهم است و برعکسش گیج‌کننده می‌شود.
         val a11y = ProtectionHealth.isAccessibilityEnabled(this)
-        stepCard(
-            number = "۱",
-            titleText = "سرویس دسترسی (ضروری)",
-            why = "بدون این، سد هیچ صفحه‌ای را نمی‌بیند و هیچ بلاکی اجرا نمی‌شود. متن صفحات جایی ذخیره یا ارسال نمی‌شود.",
-            done = a11y,
-            statusText = if (a11y) "وضعیت فعلی: فعال ✓" else "وضعیت فعلی: خاموش ✗",
-            actionText = "باز کردن تنظیمات دسترسی",
-            onAction = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
-            hint = "در صفحه‌ی بازشده، «سد» را در لیست سرویس‌ها پیدا کن، واردش شو و دکمه را روشن کن."
-        )
+        column.addView(UiKit.card(this) { c ->
+            c.addView(UiKit.title(this, "۱. سرویس دسترسی (ضروری)", 17f))
+            c.addView(UiKit.body(this, "بدون این، سد هیچ صفحه‌ای را نمی‌بیند و هیچ بلاکی اجرا نمی‌شود. متن صفحات جایی ذخیره یا ارسال نمی‌شود."))
+            c.addView(UiKit.row(this,
+                UiKit.body(this, if (a11y) "وضعیت فعلی: فعال ✓" else "وضعیت فعلی: خاموش ✗"),
+                UiKit.statusDot(this, a11y)))
+            if (!a11y) {
+                c.addView(UiKit.body(this,
+                    "قدم ۱-الف — اول قفل را باز کن (فقط یک بار لازم است): دکمه‌ی «باز کردن اطلاعات برنامه» را بزن؛ " +
+                    "بالای صفحه روی ⋮ (سه‌نقطه) بزن؛ «Allow restricted settings» را انتخاب کن و «Allow» را بزن. " +
+                    "تا این کار را نکنی، دکمه‌ی سرویس خاکستری و غیرقابل‌زدن می‌ماند — این قفل خود اندروید است، نه باگ سد.", 13f))
+                c.addView(UiKit.primaryButton(this, "باز کردن اطلاعات برنامه") {
+                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                })
+                c.addView(UiKit.body(this,
+                    "قدم ۱-ب — حالا سرویس را روشن کن: دکمه‌ی زیر را بزن؛ «سد» را در لیست سرویس‌ها پیدا کن، " +
+                    "واردش شو و دکمه را روشن کن. بعد از قدم الف، دکمه دیگر خاکستری نیست.", 13f))
+                c.addView(UiKit.tonalButton(this, "باز کردن تنظیمات دسترسی") {
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                })
+            }
+        })
 
         // قدم ۲ — نوتیفیکیشن
         val notifOk = androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled()

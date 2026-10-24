@@ -34,6 +34,10 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     private lateinit var column: LinearLayout
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var ticking = false
+    private var tickerRunnable: Runnable? = null
+    private var liveRing: UiKit.LiveRingView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +53,37 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         render()
+        startTicker()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopTicker()
+    }
+
+    /** تیک هر ثانیه برای حلقه و عدد باقی‌مانده‌ی داشبورد (بدون بازسازی کل صفحه). */
+    private fun startTicker() {
+        if (ticking) return
+        ticking = true
+        val r = object : Runnable {
+            override fun run() {
+                if (!ticking) return
+                val s = SessionManager.activeSession(this@MainActivity)
+                if (s == null) { render(); stopTicker(); return }
+                val rem = SessionManager.remainingMillis(this@MainActivity, s)
+                val frac = if (s.durationMillis > 0) rem.toFloat() / s.durationMillis.toFloat() else 0f
+                liveRing?.update(frac, faDigits(UiKit.formatDuration(rem)))
+                handler.postDelayed(this, 1000L)
+            }
+        }
+        tickerRunnable = r
+        handler.post(r)
+    }
+
+    private fun stopTicker() {
+        ticking = false
+        tickerRunnable?.let { handler.removeCallbacks(it) }
+        tickerRunnable = null
     }
 
     private fun faDigits(s: String): String {
@@ -60,6 +95,7 @@ class MainActivity : AppCompatActivity() {
     private fun render() {
         if (!::column.isInitialized) return
         column.removeAllViews()
+        liveRing = null
 
         // نوار بالا: لوگوی سد + عنوان + منوی «…»
         val appBar = LinearLayout(this).apply {
@@ -130,7 +166,9 @@ class MainActivity : AppCompatActivity() {
             column.addView(UiKit.card(this) { c ->
                 c.addView(UiKit.title(this,
                     if (session.mode == SessionMode.STRICT) "سشن Strict فعال" else "سشن فعال", 18f))
-                c.addView(UiKit.sessionRing(this, faDigits(UiKit.formatDuration(remaining)), "باقی‌مانده", fraction))
+                val ring = UiKit.sessionRing(this, faDigits(UiKit.formatDuration(remaining)), fraction)
+                liveRing = ring
+                c.addView(ring)
                 // ردیف پایین کارت: چیپ پروفایل + دکمه‌ی مشاهده‌ی سشن
                 val sessionRow = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL

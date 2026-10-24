@@ -41,12 +41,19 @@ class SessionActivity : AppCompatActivity() {
     }
 
     override fun onResume() { super.onResume(); startTicker() }
-    override fun onPause() { super.onPause(); ticking = false }
+    override fun onPause() {
+        super.onPause()
+        ticking = false
+        tickerRunnable?.let { handler.removeCallbacks(it) }
+        tickerRunnable = null
+    }
+
+    private var tickerRunnable: Runnable? = null
 
     private fun startTicker() {
         if (ticking) return
         ticking = true
-        handler.post(object : Runnable {
+        val r = object : Runnable {
             override fun run() {
                 if (!ticking) return
                 val s = SessionManager.activeSession(this@SessionActivity)
@@ -61,7 +68,9 @@ class SessionActivity : AppCompatActivity() {
                 }
                 handler.postDelayed(this, 1000L)
             }
-        })
+        }
+        tickerRunnable = r
+        handler.post(r)
     }
 
     private fun render() {

@@ -113,39 +113,70 @@ object UiKit {
         return card
     }
 
-    /** حلقه‌ی پیشرفت سشن: کمان + متن وسط (زمان باقی‌مانده و زیرنویس). */
-    fun sessionRing(context: Context, remainingText: String, subText: String, fraction: Float): FrameLayout {
-        val size = dp(context, 144)
-        val frame = FrameLayout(context).apply {
+    /** حلقه‌ی زنده‌ی پیشرفت سشن: کمان + متن وسط، با update() برای تیک هر ثانیه. */
+    class LiveRingView(context: Context) : FrameLayout(context) {
+        private val ringView: RingView
+        private val remainingView: TextView
+        init {
+            val size = dp(context, 144)
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
                 topMargin = dp(context, 8); bottomMargin = dp(context, 8)
             }
+            ringView = RingView(context, 1f)
+            addView(ringView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            val center = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            }
+            remainingView = TextView(context).apply {
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(ThemePalette.resolve(context).onSurface)
+                gravity = Gravity.CENTER
+            }
+            center.addView(remainingView)
+            center.addView(TextView(context).apply {
+                text = "باقی‌مانده"
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setTextColor(ThemePalette.resolve(context).onSurfaceVariant)
+                gravity = Gravity.CENTER
+            })
+            addView(center)
         }
-        frame.addView(RingView(context, fraction.coerceIn(0f, 1f)))
-        val center = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        fun update(fraction: Float, remaining: String) {
+            ringView.fraction = fraction
+            remainingView.text = remaining
         }
-        center.addView(TextView(context).apply {
-            text = remainingText
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(ThemePalette.resolve(context).onSurface)
-            gravity = Gravity.CENTER
-        })
-        center.addView(TextView(context).apply {
-            text = subText
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            setTextColor(ThemePalette.resolve(context).onSurfaceVariant)
-            gravity = Gravity.CENTER
-        })
-        frame.addView(center)
-        return frame
     }
 
-    private class RingView(context: Context, private val fraction: Float) : View(context) {
+    fun sessionRing(context: Context, remainingText: String, fraction: Float): LiveRingView =
+        LiveRingView(context).apply { update(fraction, remainingText) }
+
+    /** چیپ کوچکِ اطلاعات (دسته، تأخیر و...) برای ردیف‌های قوانین: خاکستری ملایم، متن ریز. */
+    fun miniChip(context: Context, label: String): TextView = TextView(context).apply {
+        text = label
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+        setTextColor(ThemePalette.resolve(context).onSurfaceVariant)
+        background = GradientDrawable().apply {
+            cornerRadius = dp(context, 12).toFloat()
+            setColor(ThemePalette.resolve(context).tile)
+        }
+        val hp = dp(context, 8); val vp = dp(context, 4)
+        setPadding(hp, vp, hp, vp)
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            val m = dp(context, 3)
+            setMargins(m, m, m, m)
+        }
+    }
+
+    private class RingView(context: Context, fraction: Float) : View(context) {
+        var fraction: Float = fraction
+            set(value) {
+                field = value.coerceIn(0f, 1f)
+                invalidate()
+            }
         private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = ThemePalette.resolve(context).outline
             style = Paint.Style.STROKE
