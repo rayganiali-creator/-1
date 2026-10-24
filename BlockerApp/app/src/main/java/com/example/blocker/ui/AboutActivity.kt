@@ -16,7 +16,7 @@ class AboutActivity : AppCompatActivity() {
         setContentView(scroll)
 
         column.addView(UiKit.card(this) { c ->
-            c.addView(UiKit.title(this, "بلاکر — نسخه ${BuildConfig.VERSION_NAME}", 18f))
+            c.addView(UiKit.title(this, "سد — نسخه ${BuildConfig.VERSION_NAME}", 18f))
             c.addView(UiKit.body(this, "اپی برای کم کردن رفتار اجباری: بلاک برنامه‌ها، دامنه‌ها و کلمات کلیدی با سرویس دسترسی اندروید، سشن‌های فوکوس زمان‌دار و حالت Strict با خروج چندمرحله‌ای."))
         })
         column.addView(UiKit.card(this) { c ->

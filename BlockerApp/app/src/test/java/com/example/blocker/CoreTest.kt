@@ -2,10 +2,12 @@ package com.example.blocker
 
 import com.example.blocker.core.BackupValidator
 import com.example.blocker.core.CoolingOff
+import com.example.blocker.core.DurationRange
 import com.example.blocker.core.KeywordMatcher
 import com.example.blocker.core.KeywordRule
 import com.example.blocker.core.PendingBlockManager
 import com.example.blocker.core.ScheduleCalculator
+import com.example.blocker.core.SelfProtection
 import com.example.blocker.core.SessionMode
 import com.example.blocker.core.SessionRecord
 import com.example.blocker.core.SessionSchedule
@@ -169,5 +171,109 @@ class ScheduleCalculatorTest {
     @Test fun overlapDetection() {
         assertTrue(ScheduleCalculator.overlaps(0, 100, 50, 100))
         assertFalse(ScheduleCalculator.overlaps(0, 100, 100, 100))
+    }
+}
+
+/**
+ * تست‌های ایمنی گارد: گارد باید فقط صفحه‌ی جزئیاتِ سرویسِ خودمان را بگیرد و
+ * هر صفحه‌ی دیگری را رها کند — مثبت کاذب یعنی قفل کردن کاربر بیرون از تنظیمات.
+ */
+class SelfProtectionGuardTest {
+    private val pkg = "com.example.blocker"
+    private val label = "سد"
+    private val marker = SelfProtection.DESCRIPTION_MARKER
+
+    private fun settingsPage(text: String, hasSwitch: Boolean) =
+        SelfProtection.shouldGuardSettingsPage(true, true, "com.android.settings", pkg, label, marker, text, hasSwitch)
+
+    @Test fun detailPageGuarded() {
+        // صفحه‌ی جزئیات سرویس ما: لیبل + توضیح + Switch
+        val text = "سد این سرویس برای مسدود کردن برنامه‌ها، سایت‌ها و کلمات کلیدی مورد نظر شما استفاده می‌شود. نسخه ۲٫۰"
+        assertTrue(settingsPage(text, hasSwitch = true))
+    }
+
+    @Test fun accessibilityListPageNotGuarded() {
+        // لیست سرویس‌ها: لیبل ما هست ولی توضیح کامل و Switch سرویس ما نیست
+        val text = "دسترسی‌پذیری TalkBack سد منوی دسترسی"
+        assertFalse(settingsPage(text, hasSwitch = false))
+    }
+
+    @Test fun listPageWithOtherSwitchesNotGuarded() {
+        // لیست سامسونگ برای هر سرویس یک Switch دارد؛ بدون توضیح ما نباید بگیرد
+        val text = "دسترسی‌پذیری TalkBack سد"
+        assertFalse(settingsPage(text, hasSwitch = true))
+    }
+
+    @Test fun detailPageWithoutSwitchNotGuarded() {
+        val text = "سد این سرویس برای مسدود کردن برنامه‌ها استفاده می‌شود."
+        assertFalse(settingsPage(text, hasSwitch = false))
+    }
+
+    @Test fun settingsHomeNotGuarded() {
+        assertFalse(settingsPage("تنظیمات شبکه و اینترنت نمایش صدا", hasSwitch = false))
+    }
+
+    @Test fun otherServiceDetailPageNotGuarded() {
+        val text = "TalkBack این سرویس برای خواندن صفحه استفاده می‌شود."
+        assertFalse(settingsPage(text, hasSwitch = true))
+    }
+
+    @Test fun labelSubstringNotGuarded() {
+        // «سدها» نباید با مرز کلمه با «سد» اشتباه شود
+        val text = "سدها این سرویس برای مسدود کردن برنامه‌ها استفاده می‌شود."
+        assertFalse(settingsPage(text, hasSwitch = true))
+    }
+
+    @Test fun noSessionNotGuarded() {
+        val text = "سد این سرویس برای مسدود کردن برنامه‌ها استفاده می‌شود."
+        assertFalse(SelfProtection.shouldGuardSettingsPage(false, true, "com.android.settings", pkg, label, marker, text, true))
+    }
+
+    @Test fun prefOffNotGuarded() {
+        val text = "سد این سرویس برای مسدود کردن برنامه‌ها استفاده می‌شود."
+        assertFalse(SelfProtection.shouldGuardSettingsPage(true, false, "com.android.settings", pkg, label, marker, text, true))
+    }
+
+    @Test fun wrongPackageNotGuarded() {
+        val text = "سد این سرویس برای مسدود کردن برنامه‌ها استفاده می‌شود."
+        assertFalse(SelfProtection.shouldGuardSettingsPage(true, true, "com.android.systemui", pkg, label, marker, text, true))
+    }
+
+    @Test fun ownPackageForegroundNotGuarded() {
+        val text = "سد این سرویس برای مسدود کردن برنامه‌ها استفاده می‌شود."
+        assertFalse(SelfProtection.shouldGuardSettingsPage(true, true, pkg, pkg, label, marker, text, true))
+    }
+
+    @Test fun installerUninstallDialogGuarded() {
+        assertTrue(SelfProtection.shouldGuardInstallerDialog(true, true, "com.android.packageinstaller", pkg, label, "آیا می‌خواهید سد را حذف کنید؟"))
+    }
+
+    @Test fun installerDialogOtherAppNotGuarded() {
+        assertFalse(SelfProtection.shouldGuardInstallerDialog(true, true, "com.android.packageinstaller", pkg, label, "آیا می‌خواهید تلگرام را حذف کنید؟"))
+    }
+
+    @Test fun installerDialogNoSessionNotGuarded() {
+        assertFalse(SelfProtection.shouldGuardInstallerDialog(false, true, "com.android.packageinstaller", pkg, label, "سد"))
+    }
+
+    @Test fun serviceEnabledInListForms() {
+        assertTrue(SelfProtection.isServiceEnabledInList("com.example.blocker/.BlockAccessibilityService", pkg, ".BlockAccessibilityService"))
+        assertTrue(SelfProtection.isServiceEnabledInList("com.example.blocker/com.example.blocker.BlockAccessibilityService", pkg, ".BlockAccessibilityService"))
+        assertTrue(SelfProtection.isServiceEnabledInList("com.other/.TalkBack:com.example.blocker/.BlockAccessibilityService", pkg, ".BlockAccessibilityService"))
+        assertFalse(SelfProtection.isServiceEnabledInList("com.other/.TalkBack", pkg, ".BlockAccessibilityService"))
+        assertFalse(SelfProtection.isServiceEnabledInList("", pkg, ".BlockAccessibilityService"))
+        assertFalse(SelfProtection.isServiceEnabledInList(null, pkg, ".BlockAccessibilityService"))
+    }
+}
+
+class DurationRangeTest {
+    @Test fun bounds() {
+        assertTrue(DurationRange.isValid(30_000L))
+        assertTrue(DurationRange.isValid(90L * 24L * 60L * 60L * 1000L))
+        assertTrue(DurationRange.isValid(25 * 60_000L))
+        assertFalse(DurationRange.isValid(29_999L))
+        assertFalse(DurationRange.isValid(90L * 24L * 60L * 60L * 1000L + 1L))
+        assertFalse(DurationRange.isValid(0L))
+        assertFalse(DurationRange.isValid(-1_000L))
     }
 }

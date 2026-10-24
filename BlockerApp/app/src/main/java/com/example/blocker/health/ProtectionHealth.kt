@@ -125,6 +125,29 @@ object ProtectionHealth {
             if (owner) "اپ Device Owner است؛ بلاک حذف در Strict قابل اعمال است."
             else "اپ Device Owner نیست؛ در این حالت هیچ اپی نمی‌تواند جلوی حذف یا Force Stop را بگیرد. راهنمای پروویژن در صفحه‌ی «درباره و محدودیت‌ها» است."
         )
+        val admin = DeviceOwnerHelper.isDeviceAdminActive(context)
+        out += HealthCheck(
+            "مدیر دستگاه (Device Admin)",
+            if (admin) HealthStatus.WORKING else HealthStatus.NEEDS_ATTENTION,
+            if (admin) "فعال است؛ حذف سد یک مرحله‌ی اضافه در تنظیمات > امنیت لازم دارد (اصطکاک، نه قفل سیستم)."
+            else "فعال نیست؛ برای سخت‌تر شدن حذفِ لحظه‌ای، از صفحه‌ی تنظیمات فعالش کن."
+        )
+        val selfProt = com.example.blocker.PrefsManager.getSelfProtectionEnabled(context)
+        val sessionNow = SessionManager.activeSession(context) != null
+        out += HealthCheck(
+            "خودمحافظتی در سشن",
+            when {
+                !selfProt -> HealthStatus.NEEDS_ATTENTION
+                sessionNow && !a11y -> HealthStatus.NEEDS_ATTENTION
+                else -> HealthStatus.WORKING
+            },
+            when {
+                !selfProt -> "خاموش است؛ در سشن صفحه‌ی جزئیات سرویس سد در تنظیمات بسته نمی‌شود."
+                sessionNow && !a11y -> "روشن است ولی سرویس Accessibility خاموش است؛ بدون آن خودمحافظتی کار نمی‌کند."
+                sessionNow -> "فعال است و سشنی در جریان است؛ صفحه‌ی جزئیات سرویس سد در تنظیمات بسته می‌شود."
+                else -> "روشن است؛ از سشن بعدی، صفحه‌ی جزئیات سرویس سد در تنظیمات بسته می‌شود."
+            }
+        )
         return out
     }
 

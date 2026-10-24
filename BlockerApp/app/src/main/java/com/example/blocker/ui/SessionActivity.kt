@@ -16,6 +16,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.blocker.PrefsManager
 import com.example.blocker.core.CoolingOff
+import com.example.blocker.core.DurationRange
 import com.example.blocker.core.FocusProfile
 import com.example.blocker.core.SessionMode
 import com.example.blocker.core.SessionRecord
@@ -141,7 +142,7 @@ class SessionActivity : AppCompatActivity() {
         column.addView(UiKit.title(this, "شروع سشن فوکوس"))
 
         var selectedProfile: FocusProfile? = null
-        var durationMinutes = 25
+        var durationMillis = 25 * 60_000L
         var mode = SessionMode.NORMAL
         var cooling = PrefsManager.getDefaultCoolingOff(this)
 
@@ -149,15 +150,41 @@ class SessionActivity : AppCompatActivity() {
             adapter = ArrayAdapter(this@SessionActivity, android.R.layout.simple_spinner_dropdown_item,
                 listOf("دستی (بدون پروفایل)") + profiles.map { it.name })
         }
-        val durationGroup = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
-        val durations = listOf(15, 25, 50, 90, 120)
-        durations.forEachIndexed { i, d ->
-            durationGroup.addView(RadioButton(this).apply {
-                text = "$d د"; id = View.generateViewId(); tag = d
-                if (d == 25) isChecked = true
-            })
+        // پیش‌فرض‌های مدت: از ۳۰ ثانیه تا ۹۰ روز (بازه‌ی مجاز DurationRange)، در دو ردیف.
+        val presets = listOf(
+            "۳۰ ثانیه" to 30_000L, "۵ دقیقه" to 5 * 60_000L,
+            "۲۵ دقیقه" to 25 * 60_000L, "۱ ساعت" to 3_600_000L,
+            "۱ روز" to 86_400_000L, "۷ روز" to 7 * 86_400_000L,
+            "۳۰ روز" to 30 * 86_400_000L, "۹۰ روز" to 90 * 86_400_000L
+        )
+        val presetButtons = mutableListOf<RadioButton>()
+        fun presetRow(items: List<Pair<String, Long>>): RadioGroup {
+            return RadioGroup(this).apply {
+                orientation = RadioGroup.HORIZONTAL
+                items.forEach { (label, millis) ->
+                    addView(RadioButton(this@SessionActivity).apply {
+                        text = label; tag = millis
+                        if (millis == durationMillis) isChecked = true
+                        presetButtons.add(this)
+                    })
+                }
+            }
         }
-        val customDuration = EditText(this).apply { hint = "مدت دلخواه (دقیقه)"; inputType = android.text.InputType.TYPE_CLASS_NUMBER }
+        val durationGroup1 = presetRow(presets.subList(0, 4))
+        val durationGroup2 = presetRow(presets.subList(4, 8))
+        val customValue = EditText(this).apply {
+            hint = "مدت دلخواه"; inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val unitSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@SessionActivity, android.R.layout.simple_spinner_dropdown_item,
+                DurationRange.Unit.values().map { it.labelFa })
+            setSelection(DurationRange.Unit.values().indexOf(DurationRange.Unit.MINUTE))
+        }
+        val customRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(customValue); addView(unitSpinner)
+        }
         val modeGroup = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
         val rbNormal = RadioButton(this).apply { text = "عادی (Normal)"; isChecked = true }
         val rbStrict = RadioButton(this).apply { text = "سخت‌گیر (Strict)" }
@@ -169,51 +196,87 @@ class SessionActivity : AppCompatActivity() {
         coolingButtons.forEach { coolingGroup.addView(it) }
         val summary = UiKit.body(this, "")
 
+        fun currentDurationMillis(): Long {
+            val v = customValue.text.toString().toLongOrNull()
+            if (v != null) {
+                val unit = DurationRange.Unit.values().getOrNull(unitSpinner.selectedItemPosition)
+                    ?: DurationRange.Unit.MINUTE
+                return v * unit.millis
+            }
+            return durationMillis
+        }
+
+        fun splitDuration(millis: Long): Pair<Long, DurationRange.Unit> = when {
+            millis % 86_400_000L == 0L -> millis / 86_400_000L to DurationRange.Unit.DAY
+            millis % 3_600_000L == 0L -> millis / 3_600_000L to DurationRange.Unit.HOUR
+            millis % 60_000L == 0L -> millis / 60_000L to DurationRange.Unit.MINUTE
+            else -> millis / 1_000L to DurationRange.Unit.SECOND
+        }
+
         fun updateSummary() {
-            val d = customDuration.text.toString().toIntOrNull() ?: durationMinutes
+            val d = currentDurationMillis()
             val m = if (rbStrict.isChecked) SessionMode.STRICT else SessionMode.NORMAL
             val co = coolingButtons.firstOrNull { it.isChecked }?.tag as? CoolingOff ?: cooling
             val delay = selectedProfile?.delaySeconds ?: PrefsManager.getDelaySeconds(this)
-            summary.text = "خلاصه: ${UiKit.formatMinutes(d.toLong())}، حالت ${if (m == SessionMode.STRICT) "Strict" else "عادی"}، دیلی بلاک $delay ثانیه" +
-                (if (m == SessionMode.STRICT) "، آرام‌سازی خروج ${co.labelFa}، قوانین و تنظیمات در طول سشن قفل می‌شوند." else ".")
+            val validNote = if (DurationRange.isValid(d)) "" else " ⚠ مدت باید بین ۳۰ ثانیه تا ۹۰ روز باشد."
+            summary.text = "خلاصه: ${UiKit.formatDuration(d)}، حالت ${if (m == SessionMode.STRICT) "Strict" else "عادی"}، دیلی بلاک $delay ثانیه" +
+                (if (m == SessionMode.STRICT) "، آرام‌سازی خروج ${co.labelFa}، قوانین و تنظیمات در طول سشن قفل می‌شوند." else ".") + validNote
         }
 
         profileSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, pos: Int, id: Long) {
                 selectedProfile = if (pos == 0) null else profiles[pos - 1]
                 selectedProfile?.let { p ->
-                    durationMinutes = (p.durationMillis / 60_000L).toInt()
+                    durationMillis = p.durationMillis
                     if (p.mode == SessionMode.STRICT) rbStrict.isChecked = true else rbNormal.isChecked = true
                     coolingButtons.forEach { it.isChecked = (it.tag as CoolingOff) == p.coolingOff }
-                    durationGroup.clearCheck()
-                    durations.forEachIndexed { i, d ->
-                        val rb = durationGroup.getChildAt(i) as RadioButton
-                        if (d == durationMinutes) rb.isChecked = true
+                    val matched = presetButtons.firstOrNull { (it.tag as Long) == durationMillis }
+                    presetButtons.forEach { it.isChecked = it == matched }
+                    if (matched == null) {
+                        val (v, u) = splitDuration(durationMillis)
+                        customValue.setText(v.toString())
+                        unitSpinner.setSelection(DurationRange.Unit.values().indexOf(u))
+                    } else {
+                        customValue.setText("")
                     }
                 }
                 updateSummary()
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
         }
-        durationGroup.setOnCheckedChangeListener { _, checkedId ->
-            val rb = findViewById<RadioButton>(checkedId)
-            (rb?.tag as? Int)?.let { durationMinutes = it }
-            updateSummary()
+        presetButtons.forEach { rb ->
+            rb.setOnClickListener {
+                durationMillis = rb.tag as Long
+                presetButtons.forEach { it.isChecked = it == rb }
+                customValue.setText("")
+                updateSummary()
+            }
         }
         modeGroup.setOnCheckedChangeListener { _, _ -> updateSummary() }
         coolingGroup.setOnCheckedChangeListener { _, _ -> updateSummary() }
-        customDuration.addTextChangedListener(object : android.text.TextWatcher {
-            override fun afterTextChanged(s: android.text.Editable?) { updateSummary() }
+        customValue.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (!s.isNullOrBlank()) presetButtons.forEach { it.isChecked = false }
+                updateSummary()
+            }
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
         })
+        unitSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                if (customValue.text.isNotBlank()) presetButtons.forEach { it.isChecked = false }
+                updateSummary()
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
 
         column.addView(UiKit.card(this) { c ->
             c.addView(UiKit.body(this, "پروفایل"))
             c.addView(profileSpinner)
-            c.addView(UiKit.body(this, "مدت سشن"))
-            c.addView(durationGroup)
-            c.addView(customDuration)
+            c.addView(UiKit.body(this, "مدت سشن (از ۳۰ ثانیه تا ۹۰ روز)"))
+            c.addView(durationGroup1)
+            c.addView(durationGroup2)
+            c.addView(customRow)
             c.addView(UiKit.body(this, "حالت"))
             c.addView(modeGroup)
             c.addView(coolingGroup)
@@ -222,8 +285,8 @@ class SessionActivity : AppCompatActivity() {
         updateSummary()
 
         column.addView(UiKit.primaryButton(this, "شروع سشن") {
-            val d = customDuration.text.toString().toIntOrNull() ?: durationMinutes
-            if (d <= 0) { Toast.makeText(this, "مدت معتبر وارد کنید", Toast.LENGTH_SHORT).show(); return@primaryButton }
+            val d = currentDurationMillis()
+            if (!DurationRange.isValid(d)) { Toast.makeText(this, "مدت سشن باید بین ۳۰ ثانیه تا ۹۰ روز باشد", Toast.LENGTH_SHORT).show(); return@primaryButton }
             mode = if (rbStrict.isChecked) SessionMode.STRICT else SessionMode.NORMAL
             cooling = coolingButtons.firstOrNull { it.isChecked }?.tag as? CoolingOff ?: cooling
             val delay = selectedProfile?.delaySeconds ?: PrefsManager.getDelaySeconds(this)
@@ -235,7 +298,7 @@ class SessionActivity : AppCompatActivity() {
                 AlertDialog.Builder(this)
                     .setTitle("فعال‌سازی Strict — تأیید نهایی")
                     .setMessage(
-                        "مدت: ${UiKit.formatMinutes(d.toLong())}\n" +
+                        "مدت: ${UiKit.formatDuration(d)}\n" +
                         "سطح محافظت واقعی فعلی: ${level.labelFa}\n" +
                         "در طول سشن: ویرایش قوانین/اپ‌های هدف و تغییر تنظیمات قفل است و کانفیگ همین لحظه snapshot می‌شود.\n" +
                         "خروج عادی: فقط با درخواست خروج و گذشت ${cooling.labelFa} آرام‌سازی.\n" +
@@ -253,8 +316,8 @@ class SessionActivity : AppCompatActivity() {
         column.addView(UiKit.outlinedButton(this, "بازگشت") { finish() })
     }
 
-    private fun doStart(mode: SessionMode, minutes: Int, profile: FocusProfile?, delay: Int, cooling: CoolingOff) {
-        SessionManager.startSession(this, mode, minutes * 60_000L, profile, delay, cooling)
+    private fun doStart(mode: SessionMode, durationMillis: Long, profile: FocusProfile?, delay: Int, cooling: CoolingOff) {
+        SessionManager.startSession(this, mode, durationMillis, profile, delay, cooling)
         SessionForegroundService.start(this)
         Toast.makeText(this, "سشن شروع شد", Toast.LENGTH_SHORT).show()
         render()

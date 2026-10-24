@@ -33,6 +33,7 @@ object PrefsManager {
     private const val KEY_ONBOARDING_DONE = "onboarding_done"
     private const val KEY_ONBOARDING_STEP = "onboarding_step"
     private const val KEY_LAST_DIAGNOSTIC = "last_diagnostic_at"
+    private const val KEY_SELF_PROTECTION = "self_protection_enabled"
 
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -160,6 +161,14 @@ object PrefsManager {
 
     fun setDefaultCoolingOff(context: Context, c: CoolingOff) {
         prefs(context).edit().putString(KEY_DEFAULT_COOLING, c.name).apply()
+    }
+
+    /** خودمحافظتی در سشن (هر حالت): فقط صفحه‌ی جزئیات سرویس خودمان در تنظیمات. پیش‌فرض روشن؛ از تنظیمات قابل خاموش کردن است. */
+    fun getSelfProtectionEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_SELF_PROTECTION, true)
+
+    fun setSelfProtectionEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_SELF_PROTECTION, enabled).apply()
     }
 
     fun isOnboardingDone(context: Context): Boolean = prefs(context).getBoolean(KEY_ONBOARDING_DONE, false)

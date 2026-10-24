@@ -11,6 +11,7 @@ import android.widget.Toast
 import com.example.blocker.core.KeywordMatcher
 import com.example.blocker.core.KeywordRule
 import com.example.blocker.core.PendingBlockManager
+import com.example.blocker.core.SelfProtection
 import com.example.blocker.core.SessionMode
 import com.example.blocker.core.TextNormalizer
 import com.example.blocker.session.SessionManager
@@ -70,6 +71,7 @@ class BlockAccessibilityService : AccessibilityService() {
     private var pendingRunnable: Runnable? = null
     private var lastBlockedSignature: String = ""
     private var lastBlockedTime: Long = 0L
+    private var lastSelfProtectTime: Long = 0L
     private var lastHeartbeat: Long = 0L
     private var lastSessionCheck: Long = 0L
 
@@ -113,6 +115,7 @@ class BlockAccessibilityService : AccessibilityService() {
         maybeCheckSession()
 
         try {
+            if (checkSelfProtection(packageName)) return
             val config = effectiveConfig()
             val candidate = findCandidate(packageName, config)
 
@@ -151,6 +154,77 @@ class BlockAccessibilityService : AccessibilityService() {
         val fresh = try { findCandidate(original.packageName, config) } catch (e: Exception) { null }
         if (fresh != null && fresh.signature == original.signature) {
             fireBlock(fresh)
+        }
+    }
+
+    /**
+     * خودمحافظتی (راه بدون فکتوری‌ریست): فقط وقتی سشنی فعال و گارد روشن است، و فقط
+     * صفحه‌ی جزئیاتِ سرویسِ خودِ «سد» در تنظیمات (لیبل + توضیح سرویس + Switch) یا
+     * دیالوگ حذف در نصاب، با back بسته و صفحه‌ی «مسدود شد» نمایش داده می‌شود.
+     * ریل‌های ایمنی: فقط back (هرگز HOME یا قفل)؛ ضربه‌گیر ۱.۵ ثانیه؛ fail-open در
+     * شک؛ وقتی سشنی فعال نیست یا سرویس خاموش است (مسیر روشن کردن سرویس) هرگز
+     * اجرا نمی‌شود — سرویس خاموش اصلاً رخداد نمی‌گیرد.
+     * @return true اگر اقدام خودمحافظتی انجام شد (رخداد عادی دیگر پردازش نشود).
+     */
+    private fun checkSelfProtection(packageName: String): Boolean {
+        val guardOn = PrefsManager.getSelfProtectionEnabled(this)
+        if (!guardOn) return false
+        val sessionActive = SessionManager.activeSession(this) != null
+        if (!sessionActive) return false
+        if (!SelfProtection.isRelevantForeground(packageName)) return false
+        val root = rootInActiveWindow ?: return false
+        val sb = StringBuilder()
+        val switchFound = booleanArrayOf(false)
+        try {
+            collectTextAndSwitch(root, sb, 200, switchFound)
+        } catch (e: Exception) {
+            return false
+        }
+        val label = try { applicationInfo.loadLabel(packageManager)?.toString() ?: "" } catch (e: Exception) { "" }
+        val guarded = when (packageName) {
+            in SelfProtection.SETTINGS_PACKAGES -> SelfProtection.shouldGuardSettingsPage(
+                sessionActive, guardOn, packageName, this.packageName, label,
+                SelfProtection.DESCRIPTION_MARKER, sb.toString(), switchFound[0]
+            )
+            in SelfProtection.PACKAGE_INSTALLER_PACKAGES -> SelfProtection.shouldGuardInstallerDialog(
+                sessionActive, guardOn, packageName, this.packageName, label, sb.toString()
+            )
+            else -> false
+        }
+        if (!guarded) return false
+        val now = System.currentTimeMillis()
+        if (now - lastSelfProtectTime < 1500) return true
+        lastSelfProtectTime = now
+        PrefsManager.recordBlock(this, "self-protection")
+        performGlobalAction(GLOBAL_ACTION_BACK)
+        val intent = Intent(this, BlockedScreenActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(
+                BlockedScreenActivity.EXTRA_MESSAGE,
+                "این صفحه در طول سشن محافظت می‌شود.\n(حذف یا غیرفعال‌سازی سد وسط سشن مسدود است.)"
+            )
+        }
+        startActivity(intent)
+        return true
+    }
+
+    /** مثل collectText ولی هم‌زمان وجود یک Switch در درخت را هم گزارش می‌کند. */
+    private fun collectTextAndSwitch(
+        node: AccessibilityNodeInfo?,
+        sb: StringBuilder,
+        maxNodes: Int,
+        switchFound: BooleanArray,
+        visited: IntArray = intArrayOf(0)
+    ) {
+        if (node == null || visited[0] >= maxNodes) return
+        visited[0] = visited[0] + 1
+        if ((node.className?.toString() ?: "").endsWith("Switch")) switchFound[0] = true
+        node.text?.let { sb.append(it).append(' ') }
+        node.contentDescription?.let { sb.append(it).append(' ') }
+        for (i in 0 until node.childCount) {
+            if (visited[0] >= maxNodes) break
+            val child = node.getChild(i) ?: continue
+            try { collectTextAndSwitch(child, sb, maxNodes, switchFound, visited) } finally { child.recycle() }
         }
     }
 
