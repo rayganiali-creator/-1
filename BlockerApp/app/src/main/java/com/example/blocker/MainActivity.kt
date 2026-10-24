@@ -26,6 +26,7 @@ import com.example.blocker.ui.SessionActivity
 import com.example.blocker.ui.SettingsActivity
 import com.example.blocker.ui.ThemePalette
 import com.example.blocker.ui.UiKit
+import com.example.blocker.widget.SessionWidgetUpdater
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -54,6 +55,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         render()
         startTicker()
+        SessionWidgetUpdater.updateAll(this)
     }
 
     override fun onPause() {

@@ -45,7 +45,7 @@ class SessionActivity : AppCompatActivity() {
         render()
     }
 
-    override fun onResume() { super.onResume(); startTicker() }
+    override fun onResume() { super.onResume(); startTicker(); SessionWidgetUpdater.updateAll(this) }
     override fun onPause() {
         super.onPause()
         ticking = false
@@ -335,7 +335,7 @@ class SessionActivity : AppCompatActivity() {
                     .setMessage(
                         "مدت: ${UiKit.formatDuration(d)}\n" +
                         "سطح محافظت واقعی فعلی: ${level.labelFa}\n" +
-                        (if (PrefsManager.getSelfProtectionEnabled(this)) "" else "⚠ خودمحافظتی خاموش است و در طول سشن قفل می‌ماند؛ دیالوگ‌های حذف و توقف اجباری بسته نمی‌شوند. اول از تنظیمات روشنش کن اگر می‌خواهی در این سشن هم محافظت شوی.\n") +
+                        (if (PrefsManager.getSelfProtectionEnabled(this)) "" else "خودمحافظتی خاموش است، ولی در این سشن Strict به‌صورت خودکار فعال می‌شود؛ تا پایان تایمر نه می‌توانی اپ را حذف کنی نه متوقف.\n") +
                         "در طول سشن: ویرایش قوانین/اپ‌های هدف و تغییر تنظیمات قفل است و کانفیگ همین لحظه snapshot می‌شود.\n" +
                         "خروج عادی: فقط با درخواست خروج و گذشت ${cooling.labelFa} آرام‌سازی.\n" +
                         "اگر سرویس دسترسی خاموش شود یا اپ Force Stop شود، محافظت متوقف می‌شود و اپ معمولی جلوی آن را نمی‌گیرد؛ بعد از باز شدن دوباره، وضعیت صادقانه گزارش می‌شود.\n" +

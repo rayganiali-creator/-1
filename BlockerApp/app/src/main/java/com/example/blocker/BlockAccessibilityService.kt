@@ -173,11 +173,12 @@ class BlockAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * خودمحافظتی (راه بدون فکتوری‌ریست)، در دو سطح:
+     * خودمحافظتی (راه بدون فکتوری‌ریست)، در سه سطح:
      *  - دیالوگ‌های حذف و توقف اجباریِ «سد»: هر وقت کلید خودمحافظتی روشن است
-     *    (حتی بدون سشن) با back بسته می‌شوند؛ صفحه‌ی اطلاعات اپ بسته نمی‌شود،
-     *    چون گارد دیالوگ فقط وقتی عمل می‌کند که دقیقاً یکی از دو کلمه‌ی حذف/
-     *    توقف در متن باشد، نه هر دو.
+     *    (حتی بدون سشن) با back بسته می‌شوند؛ در سشن Strict برای همان سشن
+     *    اجباری‌اند حتی اگر کلید خاموش بوده باشد (مقدار ذخیره‌شده دست نمی‌خورد).
+     *  - صفحه‌ی اطلاعات اپ: فقط در Strict بسته می‌شود تا دکمه‌های حذف و توقف
+     *    اصلاً در دسترس نباشند؛ بیرون از Strict این صفحه همیشه باز است.
      *  - صفحه‌ی جزئیات سرویسِ خودمان در تنظیمات: فقط وسط سشن بسته می‌شود تا
      *    بیرون از سشن، مدیریت سرویس همیشه در دسترس کاربر باشد.
      * ترتیب مهم: اول تصمیم گارد با پرچمِ فعلیِ صفحه‌ی اطلاعات اپ، بعد
@@ -188,7 +189,10 @@ class BlockAccessibilityService : AccessibilityService() {
      * @return true اگر اقدام خودمحافظتی انجام شد (رخداد عادی دیگر پردازش نشود).
      */
     private fun checkSelfProtection(packageName: String): Boolean {
-        val guardOn = PrefsManager.getSelfProtectionEnabled(this)
+        val persistedOn = PrefsManager.getSelfProtectionEnabled(this)
+        val session = SessionManager.activeSession(this)
+        val strictActive = session?.mode == SessionMode.STRICT
+        val guardOn = SelfProtection.isGuardEffective(persistedOn, strictActive)
         if (!guardOn) return false
         if (!SelfProtection.isRelevantForeground(packageName)) return false
         val root = rootInActiveWindow ?: return false
@@ -202,27 +206,34 @@ class BlockAccessibilityService : AccessibilityService() {
         val text = sb.toString()
         val label = try { applicationInfo.loadLabel(packageManager)?.toString() ?: "" } catch (e: Exception) { "" }
         val now = System.currentTimeMillis()
-        val sessionActive = SessionManager.activeSession(this) != null
+        val sessionActive = session != null
         val flagFresh = SelfProtection.isFlagFresh(lastOwnAppInfoPageTime, now)
 
         val message: String? = when (packageName) {
             in SelfProtection.SETTINGS_PACKAGES -> when {
+                // در Strict، خودِ صفحه‌ی اطلاعات اپ بسته می‌شود تا دکمه‌های حذف و
+                // توقف اصلاً در دسترس نباشند — نه فقط دیالوگِ بعد از زدن دکمه.
+                strictActive && SelfProtection.isOwnAppInfoPage(text, this.packageName, label) ->
+                    "صفحه‌ی اطلاعات «سد» در طول سشن Strict بسته می‌شود.\nتا پایان تایمر نمی‌توانی اپ را حذف یا متوقف کنی."
                 SelfProtection.shouldGuardSettingsPage(
                     sessionActive, guardOn, packageName, this.packageName, label,
                     SelfProtection.DESCRIPTION_MARKER, text, switchFound[0]
                 ) -> "این صفحه در طول سشن محافظت می‌شود.\n(حذف یا غیرفعال‌سازی سد وسط سشن مسدود است.)"
                 SelfProtection.shouldGuardForceStopDialog(
                     guardOn, packageName, this.packageName, label, text, flagFresh
-                ) -> "توقف اجباری «سد» مسدود است.\nبرای توقف اجباری، اول خودمحافظتی را در تنظیماتِ اپ خاموش کن."
+                ) -> if (strictActive) "توقف اجباری «سد» در طول سشن Strict مسدود است.\nتا پایان تایمر باز نمی‌شود."
+                    else "توقف اجباری «سد» مسدود است.\nبرای توقف اجباری، اول خودمحافظتی را در تنظیماتِ اپ خاموش کن."
                 SelfProtection.shouldGuardSettingsUninstallDialog(
                     guardOn, packageName, this.packageName, label, text, flagFresh
-                ) -> "حذف «سد» مسدود است.\nبرای حذف، اول خودمحافظتی را در تنظیماتِ اپ خاموش کن."
+                ) -> if (strictActive) "حذف «سد» در طول سشن Strict مسدود است.\nتا پایان تایمر باز نمی‌شود."
+                    else "حذف «سد» مسدود است.\nبرای حذف، اول خودمحافظتی را در تنظیماتِ اپ خاموش کن."
                 else -> null
             }
             in SelfProtection.PACKAGE_INSTALLER_PACKAGES -> when {
                 SelfProtection.shouldGuardInstallerDialog(
                     guardOn, packageName, this.packageName, label, text
-                ) -> "حذف «سد» مسدود است.\nبرای حذف، اول خودمحافظتی را در تنظیماتِ اپ خاموش کن."
+                ) -> if (strictActive) "حذف «سد» در طول سشن Strict مسدود است.\nتا پایان تایمر باز نمی‌شود."
+                    else "حذف «سد» مسدود است.\nبرای حذف، اول خودمحافظتی را در تنظیماتِ اپ خاموش کن."
                 else -> null
             }
             else -> null

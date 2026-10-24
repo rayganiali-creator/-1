@@ -166,13 +166,12 @@ class SettingsActivity : AppCompatActivity() {
             c.addView(UiKit.divider(this))
             if (strict) {
                 c.addView(UiKit.body(this,
-                    "🔒 در سشن Strict این کلید قفل است؛ نه می‌توانی خاموشش کنی نه روشنش کنی. " +
-                    "تا پایان سشن با همان وضعیتی می‌ماند که سشن با آن شروع شد — وگرنه وسط وسوسه " +
-                    "کافی بود کلید را بزنی و بعد اپ را حذف کنی.", 13f))
+                    "🔒 در سشن Strict محافظت کامل برقرار است و کلید قفل است؛ حتی اگر کلید خاموش " +
+                    "بوده باشد، در طول سشن دیالوگ‌های حذف و توقف بسته می‌شوند و صفحه‌ی اطلاعات " +
+                    "اپ باز نمی‌شود. بعد از پایان سشن، کلید به وضعیت قبلی‌اش برمی‌گردد.", 13f))
             }
-            val toggleText = if (strict) {
-                if (enabled) "🔒 خودمحافظتی: فعال (قفل در سشن Strict)" else "🔒 خودمحافظتی: غیرفعال (قفل در سشن Strict)"
-            } else if (enabled) "✅ خودمحافظتی: فعال" else "خودمحافظتی: غیرفعال"
+            val toggleText = if (strict) "🔒 خودمحافظتی: فعال در سشن Strict"
+            else if (enabled) "✅ خودمحافظتی: فعال" else "خودمحافظتی: غیرفعال"
             c.addView(UiKit.tonalButton(this, toggleText) {
                 if (SessionManager.isStrictActive(this)) {
                     Toast.makeText(this, "در سشن Strict خودمحافظتی قفل است و تا پایان سشن قابل تغییر نیست.", Toast.LENGTH_SHORT).show()

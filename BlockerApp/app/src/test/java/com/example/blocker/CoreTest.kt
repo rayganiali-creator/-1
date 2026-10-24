@@ -194,6 +194,13 @@ class SelfProtectionGuardTest {
         assertTrue(settingsPage(text, hasSwitch = true))
     }
 
+    @Test fun guardEffectiveInStrictEvenIfToggleOff() {
+        // Strict یعنی حداکثر محافظت برای همان سشن، حتی اگر کلید خاموش بوده باشد.
+        assertTrue(SelfProtection.isGuardEffective(persistedOn = false, strictActive = true))
+        assertTrue(SelfProtection.isGuardEffective(persistedOn = true, strictActive = false))
+        assertFalse(SelfProtection.isGuardEffective(persistedOn = false, strictActive = false))
+    }
+
     @Test fun accessibilityListPageNotGuarded() {
         // لیست سرویس‌ها: لیبل ما هست ولی توضیح کامل و Switch سرویس ما نیست
         val text = "دسترسی‌پذیری TalkBack سد منوی دسترسی"
