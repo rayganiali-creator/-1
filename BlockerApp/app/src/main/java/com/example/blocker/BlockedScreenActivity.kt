@@ -1,7 +1,9 @@
 package com.example.blocker
 
+import android.animation.ObjectAnimator
 import android.content.Intent
 import android.os.Bundle
+import android.view.animation.OvershootInterpolator
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.example.blocker.databinding.ActivityBlockedScreenBinding
@@ -35,6 +37,23 @@ class BlockedScreenActivity : AppCompatActivity() {
         }
 
         binding.btnBackHome.setOnClickListener { goHome() }
+
+        // انیمیشن سبک خرس ایجنت: ورود با جهش نرم، بعد تکان ملایم و همیشگی.
+        // بدون هیچ کتابخانه‌ای؛ فقط دو سه انیماتور روی یک ImageView.
+        // (findViewById به‌جای بایندینگ: گیت محلی R.id را از لی‌آوت می‌سازد ولی
+        // کلاس‌های بایندینگِ تولیدیِ Gradle را ندارد.)
+        val bear = findViewById<android.widget.ImageView>(R.id.imgBear)
+        bear.scaleX = 0.6f; bear.scaleY = 0.6f; bear.alpha = 0f
+        ObjectAnimator.ofFloat(bear, "scaleX", 0.6f, 1f).apply {
+            duration = 500; interpolator = OvershootInterpolator(2f); start()
+        }
+        ObjectAnimator.ofFloat(bear, "scaleY", 0.6f, 1f).apply {
+            duration = 500; interpolator = OvershootInterpolator(2f); start()
+        }
+        ObjectAnimator.ofFloat(bear, "alpha", 0f, 1f).apply { duration = 350; start() }
+        ObjectAnimator.ofFloat(bear, "translationY", 0f, -12f, 0f).apply {
+            duration = 1800; repeatCount = ObjectAnimator.INFINITE; startDelay = 550; start()
+        }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { goHome() }

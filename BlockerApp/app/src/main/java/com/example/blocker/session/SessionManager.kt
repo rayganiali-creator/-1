@@ -197,6 +197,19 @@ object SessionManager {
         return finish(context, s, completed = false)
     }
 
+    /** تمدید سشنِ فعال (هر دو حالت): مدت و پایانِ دیواری هر دو به یک اندازه جلو می‌روند.
+     *  فقط وقتی وضعیت ACTIVE است؛ وسط آرام‌سازیِ خروج، تمدید معنا ندارد. */
+    fun extendSession(context: Context, extraMillis: Long): SessionRecord? {
+        val s = activeSession(context) ?: return null
+        if (s.status != SessionStatus.ACTIVE) return null
+        val updated = s.copy(
+            durationMillis = s.durationMillis + extraMillis,
+            endWallMillis = s.endWallMillis + extraMillis
+        )
+        persist(context, updated)
+        return updated
+    }
+
     /** پاک‌کردن کامل وضعیت سشن؛ مسیر ریکاوری اضطراری هم از همین اثر استفاده می‌کند ولی مستقل پیاده شده. */
     fun clearAll(context: Context) {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

@@ -176,7 +176,7 @@ class RulesActivity : AppCompatActivity() {
             val check = TextView(this).apply {
                 text = if (opt == selectedDelay) "✓" else ""
                 textSize = 16f
-                setTextColor(ContextCompat.getColor(this@RulesActivity, com.example.blocker.R.color.blocker_primary))
+                setTextColor(ThemePalette.resolve(this@RulesActivity).accent)
             }
             checkViews.add(check)
             val row = LinearLayout(this).apply {

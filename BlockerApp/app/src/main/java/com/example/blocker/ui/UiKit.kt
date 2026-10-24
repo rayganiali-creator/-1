@@ -24,8 +24,10 @@ import com.example.blocker.R
 import com.google.android.material.card.MaterialCardView
 
 /** پالت رنگی برنامه بر اساس انتخاب کاربر برای رنگ پس‌زمینه (تنظیمات > رنگ پس‌زمینه).
- *  رنگ‌های تأکیدی (primary و...) همان توکن‌های DayNight می‌مانند؛ فقط پس‌زمینه،
- *  سطح کارت، رنگ متن و خط دور با تم عوض می‌شوند تا خوانایی در هر تم حفظ شود. */
+ *  زبان بازطراحی تیره‌ی مدرن (موکاپ‌های تأییدشده‌ی ۲۰۲۶-۱۰-۲۴): پس‌زمینه‌ی زغالی،
+ *  سطح کارت زغالیِ روشن‌تر، لهجه‌ی نعنایی. پیش‌فرض (خودکار) حالا تیره است تا
+ *  ظاهر برنامه همان موکاپ‌های تأییدشده باشد؛ روشن/نعنایی/آبی/کرمی همچنان از
+ *  تنظیمات قابل انتخاب‌اند و لهجه‌شان با همان تم هماهنگ می‌شود. */
 object ThemePalette {
     data class Colors(
         val background: Int,
@@ -34,28 +36,32 @@ object ThemePalette {
         val onSurfaceVariant: Int,
         val outline: Int,
         /** خاکستریِ ملایمِ کاشی‌ها و فیلدهای ورودی. */
-        val tile: Int
+        val tile: Int,
+        /** لهجه‌ی اصلی (آیکن‌ها، حلقه، دکمه‌ی اصلی). */
+        val accent: Int,
+        /** نسخه‌ی ملایم لهجه برای پس‌زمینه‌ی دکمه‌ی تونال و چیپ انتخاب‌شده. */
+        val accentSoft: Int,
+        /** متن روی لهجه‌ی اصلی. */
+        val onAccent: Int
     )
 
     fun resolve(context: Context): Colors {
-        val night = (context.resources.configuration.uiMode and
-            android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-            android.content.res.Configuration.UI_MODE_NIGHT_YES
         return when (PrefsManager.getTheme(context)) {
-            "dark" -> dark()
             "light" -> light()
-            "mint" -> Colors(0xFFE7F5EE.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E8DD.toInt(), 0xFFEAF3EC.toInt())
-            "blue" -> Colors(0xFFEAF1FB.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E0F0.toInt(), 0xFFEBEFF5.toInt())
-            "cream" -> Colors(0xFFFDF6EC.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFEADFC8.toInt(), 0xFFF5EFE2.toInt())
-            else -> if (night) dark() else light()
+            "mint" -> Colors(0xFFE7F5EE.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E8DD.toInt(), 0xFFEAF3EC.toInt(), 0xFF0E9F76.toInt(), 0xFFD9F5EA.toInt(), 0xFFFFFFFF.toInt())
+            "blue" -> Colors(0xFFEAF1FB.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFD5E0F0.toInt(), 0xFFEBEFF5.toInt(), 0xFF2B7CD3.toInt(), 0xFFDFEBF9.toInt(), 0xFFFFFFFF.toInt())
+            "cream" -> Colors(0xFFFDF6EC.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFEADFC8.toInt(), 0xFFF5EFE2.toInt(), 0xFF0E9F76.toInt(), 0xFFEAF3EC.toInt(), 0xFFFFFFFF.toInt())
+            // «خودکار» و «تیره» هر دو تیره‌ی بازطراحی‌اند.
+            else -> dark()
         }
     }
 
-    private fun light() = Colors(0xFFF7F8F7.toInt(), 0xFFFFFFFF.toInt(), 0xFF1B1D1E.toInt(), 0xFF5A6363.toInt(), 0xFFDCE3E1.toInt(), 0xFFF1F3F2.toInt())
-    private fun dark() = Colors(0xFF101314.toInt(), 0xFF181D1E.toInt(), 0xFFE8EAEB.toInt(), 0xFFA8B0B1.toInt(), 0xFF2A3234.toInt(), 0xFF1F2627.toInt())
+    private fun light() = Colors(0xFFF4F6F5.toInt(), 0xFFFFFFFF.toInt(), 0xFF14181D.toInt(), 0xFF5A6363.toInt(), 0xFFE2E8E6.toInt(), 0xFFEEF2F0.toInt(), 0xFF0E9F76.toInt(), 0xFFD9F5EA.toInt(), 0xFFFFFFFF.toInt())
+    private fun dark() = Colors(0xFF14181D.toInt(), 0xFF232A32.toInt(), 0xFFFFFFFF.toInt(), 0xFF9AA7B0.toInt(), 0xFF2E3A40.toInt(), 0xFF1E242B.toInt(), 0xFF7CFFD9.toInt(), 0xFF1E3A32.toInt(), 0xFF14181D.toInt())
 }
 
-/** سازنده‌های مشترک UI برنامه‌ای؛ زبان بصری «سد»: کارت‌های گرد ۲۸، گرادیان قهرمان، دکمه‌های قرصی. */
+/** سازنده‌های مشترک UI برنامه‌ای؛ زبان بصری «سد» در بازطراحی تیره‌ی مدرن:
+ *  کارت‌های گرد ۲۸ و تخت (بدون سایه)، دکمه‌های قرصی نعنایی، حلقه‌ی درشت سشن. */
 object UiKit {
 
     fun dp(context: Context, value: Int): Int =
@@ -68,8 +74,8 @@ object UiKit {
         }
         val column = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            val pad = dp(context, 16)
-            setPadding(pad, pad, pad, dp(context, 24))
+            val pad = dp(context, 20)
+            setPadding(pad, pad, pad, dp(context, 28))
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         scroll.addView(column)
@@ -96,8 +102,8 @@ object UiKit {
 
     fun card(context: Context, build: (LinearLayout) -> Unit): MaterialCardView {
         val card = MaterialCardView(context).apply {
-            radius = dp(context, 24).toFloat()
-            cardElevation = dp(context, 2).toFloat()
+            radius = dp(context, 28).toFloat()
+            cardElevation = 0f
             setCardBackgroundColor(ThemePalette.resolve(context).surface)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { bottomMargin = dp(context, 12) }
@@ -118,7 +124,7 @@ object UiKit {
         private val ringView: RingView
         private val remainingView: TextView
         init {
-            val size = dp(context, 144)
+            val size = dp(context, 168)
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
                 topMargin = dp(context, 8); bottomMargin = dp(context, 8)
@@ -131,7 +137,7 @@ object UiKit {
                 layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             }
             remainingView = TextView(context).apply {
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f)
                 setTypeface(typeface, Typeface.BOLD)
                 setTextColor(ThemePalette.resolve(context).onSurface)
                 gravity = Gravity.CENTER
@@ -180,12 +186,12 @@ object UiKit {
         private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = ThemePalette.resolve(context).outline
             style = Paint.Style.STROKE
-            strokeWidth = context.resources.displayMetrics.density * 6
+            strokeWidth = context.resources.displayMetrics.density * 8
         }
         private val progressPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = ContextCompat.getColor(context, R.color.blocker_primary)
+            color = ThemePalette.resolve(context).accent
             style = Paint.Style.STROKE
-            strokeWidth = context.resources.displayMetrics.density * 6
+            strokeWidth = context.resources.displayMetrics.density * 8
             strokeCap = Paint.Cap.ROUND
         }
         override fun onDraw(canvas: Canvas) {
@@ -239,16 +245,16 @@ object UiKit {
         return row
     }
 
-    /** کاشیِ مینیمال: خاکستریِ ملایم، بدون خط و سایه، آیکونِ خطیِ teal مستقیم روی کاشی. */
+    /** کاشیِ مدرن: سطح ملایم، بدون خط و سایه، آیکونِ خطیِ لهجه‌دار مستقیم روی کاشی. */
     fun tile(context: Context, iconRes: Int, label: String, onClick: () -> Unit): MaterialCardView {
         val palette = ThemePalette.resolve(context)
         val card = MaterialCardView(context).apply {
-            radius = dp(context, 20).toFloat()
+            radius = dp(context, 24).toFloat()
             cardElevation = 0f
             setCardBackgroundColor(palette.tile)
             isClickable = true
             isFocusable = true
-            rippleColor = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.blocker_primary))
+            rippleColor = ColorStateList.valueOf(palette.accent)
             useCompatPadding = true
         }
         val inner = LinearLayout(context).apply {
@@ -259,7 +265,7 @@ object UiKit {
         }
         inner.addView(ImageView(context).apply {
             setImageResource(iconRes)
-            imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.blocker_primary))
+            imageTintList = ColorStateList.valueOf(palette.accent)
             layoutParams = LinearLayout.LayoutParams(dp(context, 28), dp(context, 28))
         })
         inner.addView(TextView(context).apply {
@@ -275,15 +281,16 @@ object UiKit {
         return card
     }
 
-    /** دکمه‌ی اصلی: یکدستِ teal، قرصی‌شکل، متن سفید. */
-    fun primaryButton(context: Context, text: String, onClick: () -> Unit): AppCompatButton =
-        AppCompatButton(context).apply {
+    /** دکمه‌ی اصلی: یکدستِ لهجه‌ای، قرصی‌شکل، متن هماهنگ با لهجه. */
+    fun primaryButton(context: Context, text: String, onClick: () -> Unit): AppCompatButton {
+        val palette = ThemePalette.resolve(context)
+        return AppCompatButton(context).apply {
             this.text = text
             background = GradientDrawable().apply {
                 cornerRadius = dp(context, 28).toFloat()
-                setColor(ContextCompat.getColor(context, R.color.blocker_primary))
+                setColor(palette.accent)
             }
-            setTextColor(ContextCompat.getColor(context, R.color.blocker_on_hero))
+            setTextColor(palette.onAccent)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setTypeface(typeface, Typeface.BOLD)
             minimumHeight = dp(context, 56)
@@ -291,15 +298,17 @@ object UiKit {
                 .apply { topMargin = dp(context, 8) }
             setOnClickListener { onClick() }
         }
+    }
 
-    fun tonalButton(context: Context, text: String, onClick: () -> Unit): AppCompatButton =
-        AppCompatButton(context).apply {
+    fun tonalButton(context: Context, text: String, onClick: () -> Unit): AppCompatButton {
+        val palette = ThemePalette.resolve(context)
+        return AppCompatButton(context).apply {
             this.text = text
             background = GradientDrawable().apply {
                 cornerRadius = dp(context, 24).toFloat()
-                setColor(ContextCompat.getColor(context, R.color.blocker_primary_container))
+                setColor(palette.accentSoft)
             }
-            setTextColor(ContextCompat.getColor(context, R.color.blocker_primary))
+            setTextColor(palette.accent)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setTypeface(typeface, Typeface.BOLD)
             minimumHeight = dp(context, 52)
@@ -307,12 +316,13 @@ object UiKit {
                 .apply { topMargin = dp(context, 8) }
             setOnClickListener { onClick() }
         }
+    }
 
     fun textButton(context: Context, text: String, onClick: () -> Unit): AppCompatButton =
         AppCompatButton(context).apply {
             this.text = text
             background = null
-            setTextColor(ContextCompat.getColor(context, R.color.blocker_primary))
+            setTextColor(ThemePalette.resolve(context).accent)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setTypeface(typeface, Typeface.BOLD)
             minimumHeight = dp(context, 48)
@@ -361,11 +371,12 @@ object UiKit {
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
     }
 
-    /** قرص وضعیت محافظت: نقطه‌ی رنگی + عنوان + زیرنویس، روی پس‌زمینه‌ی ملایم
-     *  (سبزِ روشن برای فعال، قرمزِ روشن برای خاموش). */
+    /** قرص وضعیت محافظت: نقطه‌ی لهجه‌ای + عنوان + زیرنویس، روی پس‌زمینه‌ی
+     *  ملایمِ هماهنگ با تم (فعال: تینت لهجه؛ خاموش: سطح ملایم با نقطه‌ی خطا). */
     fun statusPill(context: Context, active: Boolean, titleText: String, subtitleText: String): LinearLayout {
-        val bg = if (active) 0xFFE6F4EA.toInt() else 0xFFFDECEA.toInt()
-        val dot = if (active) 0xFF34A853.toInt() else 0xFFD93025.toInt()
+        val palette = ThemePalette.resolve(context)
+        val bg = if (active) palette.accentSoft else palette.tile
+        val dot = if (active) palette.accent else ContextCompat.getColor(context, R.color.blocker_error)
         val pill = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -392,12 +403,12 @@ object UiKit {
             text = titleText
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(0xFF1B1D1E.toInt())
+            setTextColor(palette.onSurface)
         })
         texts.addView(TextView(context).apply {
             text = subtitleText
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            setTextColor(0xFF5A6363.toInt())
+            setTextColor(palette.onSurfaceVariant)
         })
         pill.addView(dotView)
         pill.addView(texts)
@@ -426,29 +437,29 @@ object UiKit {
     fun chip(context: Context, label: String, selected: Boolean, onClick: () -> Unit): TextView =
         chipView(context, label, selected).apply { setOnClickListener { onClick() } }
 
-    /** رنگ چیپ را با وضعیت انتخاب همگام می‌کند (انتخابی: teal ملایم + متن tealِ پررنگ). */
+    /** رنگ چیپ را با وضعیت انتخاب همگام می‌کند (انتخابی: تینت لهجه + متن لهجه‌ای). */
     fun setChipSelected(context: Context, chip: TextView, selected: Boolean) {
         val palette = ThemePalette.resolve(context)
         chip.background = GradientDrawable().apply {
             cornerRadius = dp(context, 24).toFloat()
             setColor(
-                if (selected) ContextCompat.getColor(context, R.color.blocker_primary_container)
+                if (selected) palette.accentSoft
                 else palette.tile
             )
         }
         chip.setTextColor(
-            if (selected) ContextCompat.getColor(context, R.color.blocker_primary)
+            if (selected) palette.accent
             else palette.onSurface
         )
         chip.setTypeface(chip.typeface, if (selected) Typeface.BOLD else Typeface.NORMAL)
     }
 
-    /** فیلد ورودیِ مینیمال: پس‌زمینه‌ی خاکستریِ ملایم، بدون خط زیرین. */
+    /** فیلد ورودیِ مدرن: پس‌زمینه‌ی سطح ملایم، گوشه‌های گرد ۲۰، بدون خط زیرین. */
     fun textField(context: Context, hint: String): EditText =
         EditText(context).apply {
             this.hint = hint
             background = GradientDrawable().apply {
-                cornerRadius = dp(context, 16).toFloat()
+                cornerRadius = dp(context, 20).toFloat()
                 setColor(ThemePalette.resolve(context).tile)
             }
             val hp = dp(context, 16)

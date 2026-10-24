@@ -14,12 +14,14 @@
         <item name="android:colorBackground">@color/blocker_background</item>
         <item name="android:windowBackground">@color/blocker_background</item>
         <item name="android:statusBarColor">@color/blocker_background</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
+
     <style name="Theme.Blocker.Blocked" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:fontFamily">@font/vazirmatn</item>
         <item name="fontFamily">@font/vazirmatn</item>
         <item name="android:windowBackground">@color/blocker_blocked_bg</item>
         <item name="android:statusBarColor">@color/blocker_blocked_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

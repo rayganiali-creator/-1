@@ -83,7 +83,7 @@ class SettingsActivity : AppCompatActivity() {
             c.addView(UiKit.title(this, "رنگ پس‌زمینه", 17f))
             c.addView(UiKit.body(this, "پس‌زمینه‌ی همه‌ی صفحه‌ها با این رنگ عوض می‌شود."))
             val themes = listOf(
-                "system" to "خودکار (متناسب با سیستم)",
+                "system" to "تیره (پیش‌فرض)",
                 "light" to "روشن",
                 "dark" to "تیره",
                 "mint" to "نعنایی",

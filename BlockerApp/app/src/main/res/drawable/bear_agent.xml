@@ -1,0 +1,30 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <!-- خرس ایجنت «سد»: بانمک و سبک، برای صفحه‌ی بلاک. -->
+    <!-- گوش‌ها -->
+    <path android:fillColor="#B07A4A" android:pathData="M38,52 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0" />
+    <path android:fillColor="#B07A4A" android:pathData="M122,52 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0" />
+    <path android:fillColor="#E8C39A" android:pathData="M48,52 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0" />
+    <path android:fillColor="#E8C39A" android:pathData="M132,52 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0" />
+    <!-- سر -->
+    <path android:fillColor="#B07A4A" android:pathData="M36,108 a64,64 0 1,0 128,0 a64,64 0 1,0 -128,0" />
+    <!-- گونه‌های سرخ -->
+    <path android:fillColor="#E88A7A" android:fillAlpha="0.5" android:pathData="M47,124 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    <path android:fillColor="#E88A7A" android:fillAlpha="0.5" android:pathData="M135,124 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    <!-- پوزه -->
+    <path android:fillColor="#E8C39A" android:pathData="M68,132 a32,24 0 1,0 64,0 a32,24 0 1,0 -64,0" />
+    <!-- چشم‌ها + برق چشم -->
+    <path android:fillColor="#2B1D12" android:pathData="M66,96 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0" />
+    <path android:fillColor="#2B1D12" android:pathData="M118,96 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M74.5,93 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M126.5,93 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+    <!-- بینی و دهان -->
+    <path android:fillColor="#2B1D12" android:pathData="M89,120 a11,8 0 1,0 22,0 a11,8 0 1,0 -22,0" />
+    <path android:fillColor="#00000000" android:strokeColor="#2B1D12" android:strokeWidth="3" android:strokeLineCap="round" android:pathData="M100,128 L100,136 M100,136 Q92,144 84,138 M100,136 Q108,144 116,138" />
+    <!-- نشان سپر نعنایی با تیک -->
+    <path android:fillColor="#7CFFD9" android:pathData="M152,128 L176,138 L176,160 C176,176 165,188 152,194 C139,188 128,176 128,160 L128,138 Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#14181D" android:strokeWidth="5" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M140,161 L149,170 L165,150" />
+</vector>

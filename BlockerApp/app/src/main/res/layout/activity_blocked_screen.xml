@@ -7,11 +7,11 @@
     android:background="@color/blocker_blocked_bg"
     android:padding="32dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="⛔"
-        android:textSize="64sp"
+    <ImageView
+        android:id="@+id/imgBear"
+        android:layout_width="140dp"
+        android:layout_height="140dp"
+        android:src="@drawable/bear_agent"
         android:layout_marginBottom="16dp" />
 
     <TextView
@@ -40,7 +40,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="بازگشت به صفحه اصلی"
-        android:backgroundTint="@color/white"
-        android:textColor="@color/accent" />
+        android:backgroundTint="@color/blocker_mint"
+        android:textColor="@color/blocker_ink" />
 
 </LinearLayout>

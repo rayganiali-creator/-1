@@ -1,27 +1,31 @@
 <resources>
     <!-- پالت قدیمی (برای چیدمان‌های باقی‌مانده) -->
-    <color name="primary">#0F766E</color>
-    <color name="primary_dark">#0B5951</color>
+    <color name="primary">#0E9F76</color>
+    <color name="primary_dark">#0B7A5B</color>
     <color name="accent">#B3261E</color>
-    <color name="background">#F7F8F7</color>
+    <color name="background">#14181D</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
 
-    <!-- توکن‌های Material 3 بلاکر — حالت روشن -->
-    <color name="blocker_primary">#0F766E</color>
-    <color name="blocker_on_primary">#FFFFFF</color>
-    <color name="blocker_primary_container">#D7ECE8</color>
-    <color name="blocker_secondary">#47617B</color>
-    <color name="blocker_background">#F7F8F7</color>
-    <color name="blocker_surface">#FFFFFF</color>
-    <color name="blocker_on_surface">#131A1B</color>
-    <color name="blocker_on_surface_variant">#4A5759</color>
-    <color name="blocker_outline">#D8DEDC</color>
-    <color name="blocker_error">#B3261E</color>
-    <color name="blocker_success">#1B7A43</color>
-    <color name="blocker_warning">#B26A00</color>
-    <color name="blocker_blocked_bg">#8C2B23</color>
+    <!-- نعناییِ شاخص بازطراحی تیره (آیکن ۳) + جوهر تیره برای متن روی نعنایی -->
+    <color name="blocker_mint">#7CFFD9</color>
+    <color name="blocker_ink">#14181D</color>
 
-    <!-- گرادیان کارت قهرمان داشبورد — حالت روشن -->
-    <color name="blocker_on_hero">#FFFFFF</color>
+    <!-- توکن‌های Material 3 بلاکر — پایه‌ی تیره‌ی بازطراحی -->
+    <color name="blocker_primary">#0E9F76</color>
+    <color name="blocker_on_primary">#FFFFFF</color>
+    <color name="blocker_primary_container">#D9F5EA</color>
+    <color name="blocker_secondary">#8FA8B8</color>
+    <color name="blocker_background">#14181D</color>
+    <color name="blocker_surface">#232A32</color>
+    <color name="blocker_on_surface">#FFFFFF</color>
+    <color name="blocker_on_surface_variant">#9AA7B0</color>
+    <color name="blocker_outline">#2E3A40</color>
+    <color name="blocker_error">#FF6B5E</color>
+    <color name="blocker_success">#34D399</color>
+    <color name="blocker_warning">#FFB020</color>
+    <color name="blocker_blocked_bg">#14181D</color>
+
+    <!-- متن روی دکمه‌ی نعنایی -->
+    <color name="blocker_on_hero">#14181D</color>
 </resources>

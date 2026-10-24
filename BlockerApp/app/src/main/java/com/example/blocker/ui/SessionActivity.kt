@@ -25,6 +25,8 @@ import com.example.blocker.health.ProtectionHealth
 import com.example.blocker.service.SessionForegroundService
 import com.example.blocker.session.SessionManager
 import com.example.blocker.widget.SessionWidgetProvider
+import java.text.SimpleDateFormat
+import java.util.Locale
 import com.example.blocker.widget.SessionWidgetUpdater
 
 /** صفحه‌ی ساخت و مدیریت سشن؛ Quick Start داشبورد هم به همین‌جا می‌آید. */
@@ -78,6 +80,14 @@ class SessionActivity : AppCompatActivity() {
         handler.post(r)
     }
 
+    private fun timeFa(wallMillis: Long): String =
+        SimpleDateFormat("HH:mm", Locale.US).format(java.util.Date(wallMillis))
+
+    private fun faDigits(s: String): String {
+        val fa = charArrayOf('۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹')
+        return s.map { if (it in '0'..'9') fa[it - '0'] else it }.joinToString("")
+    }
+
     private fun render() {
         column.removeAllViews()
         remainingView = null; exitInfoView = null
@@ -93,9 +103,11 @@ class SessionActivity : AppCompatActivity() {
                 text = UiKit.formatDuration(SessionManager.remainingMillis(this@SessionActivity, s))
                 textSize = 40f
                 gravity = android.view.Gravity.CENTER
+                setTextColor(ThemePalette.resolve(this@SessionActivity).onSurface)
             }
             remainingView = rem
             c.addView(rem)
+            c.addView(UiKit.body(this, "شروع ${faDigits(timeFa(s.startWallMillis))} — پایان ${faDigits(timeFa(s.endWallMillis))}"))
             c.addView(UiKit.body(this, "پروفایل: ${s.profileName}"))
             c.addView(UiKit.body(this, "دیلی بلاک: ${s.delaySeconds} ثانیه"))
             val apps = SessionManager.snapshotApps(s.configSnapshotJson).size
@@ -109,6 +121,13 @@ class SessionActivity : AppCompatActivity() {
             }
         })
 
+        if (s.status == SessionStatus.ACTIVE) {
+            column.addView(UiKit.tonalButton(this, "تمدید ۱۵ دقیقه") {
+                SessionManager.extendSession(this, 15 * 60_000L)
+                Toast.makeText(this, "سشن ۱۵ دقیقه تمدید شد", Toast.LENGTH_SHORT).show()
+                render()
+            })
+        }
         if (s.mode == SessionMode.NORMAL) {
             column.addView(UiKit.primaryButton(this, "پایان دادن سشن") {
                 SessionForegroundService.stop(this)

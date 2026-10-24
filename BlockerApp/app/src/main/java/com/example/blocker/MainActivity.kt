@@ -109,7 +109,7 @@ class MainActivity : AppCompatActivity() {
         appBar.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_shield)
             imageTintList = android.content.res.ColorStateList.valueOf(
-                ContextCompat.getColor(this@MainActivity, R.color.blocker_primary))
+                ThemePalette.resolve(this@MainActivity).accent)
             layoutParams = LinearLayout.LayoutParams(UiKit.dp(this@MainActivity, 28), UiKit.dp(this@MainActivity, 28))
         })
         appBar.addView(TextView(this).apply {
