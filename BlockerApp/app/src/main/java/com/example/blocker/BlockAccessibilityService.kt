@@ -342,7 +342,7 @@ class BlockAccessibilityService : AccessibilityService() {
                 val inputText = StringBuilder()
                 val contentText = StringBuilder()
                 collectScopedText(root, inputText, contentText, inList = false, maxNodes = 400)
-                val scopedText = inputText.toString() + " " + contentText.toString()
+                val scopedText = inputText.toString()
                 val decision = AiEngine.classify(
                     config.rules, scopedText, packageName,
                     PrefsManager.getLearnedAllow(this),
@@ -391,8 +391,7 @@ class BlockAccessibilityService : AccessibilityService() {
         val isInput = KeywordScope.isInputNode(cls, node.isEditable)
         val target = when {
             isInput -> inputSb
-            nowInList -> null
-            else -> contentSb
+            else -> null
         }
         if (target != null) {
             node.text?.let { target.append(it).append(' ') }
