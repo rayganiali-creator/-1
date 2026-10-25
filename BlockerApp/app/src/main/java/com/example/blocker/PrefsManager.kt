@@ -161,8 +161,9 @@ object PrefsManager {
         HashSet(safeStringSet(context, KEY_LEARNED_ALLOW))
 
     /** ثبت اینکه این عبارت برای این قانون اشتباه بلاک شده؛ دفعات بعد همان عبارت بلاک نمی‌شود. */
-    fun addLearnedAllow(context: Context, ruleId: String, evidence: String) {
-        val key = "$ruleId|${SemanticEngine.evidenceKey(evidence)}"
+    fun addLearnedAllow(context: Context, ruleId: String, evidence: String, packageName: String) {
+        // محدود به همان برنامه؛ بازخورد اشتباه نباید قانون را در اپ‌های دیگر خاموش کند.
+        val key = "${ruleId}|${packageName}|${SemanticEngine.evidenceKey(evidence)}"
         val set = getLearnedAllow(context).toMutableSet()
         if (set.add(key)) {
             prefs(context).edit().putStringSet(KEY_LEARNED_ALLOW, set).apply()
