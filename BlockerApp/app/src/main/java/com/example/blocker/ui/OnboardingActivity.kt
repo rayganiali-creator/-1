@@ -187,13 +187,31 @@ class OnboardingActivity : AppCompatActivity() {
             }))
         column.addView(UiKit.body(this, OnboardingState.progressText(steps), 13f))
 
-        // قدم جاری: فوکوس کاربر اگر هنوز اقدام لازم است، وگرنه اولین اقدام لازم
-        // (با احترام به رد کردن قدم‌های اختیاری)، وگرنه اولین اقدام لازم.
+        // انتخاب قدم جاری (منطق خالص در OnboardingState): فوکوس اقدام لازم،
+        // وگرنه اولین اقدام لازمِ ردنشده؛ اگر همه‌ی باقی‌مانده‌ها رد شده‌اند،
+        // current برابر null می‌شود و صفحه‌ی پایان نشان داده می‌شود (نه اینکه
+        // قدم ردشده دوباره به‌عنوان قدم جاری برگردد — باگ نسخه‌ی قبل).
         val skippedIds = skipped.mapNotNull { runCatching { StepId.valueOf(it) }.getOrNull() }.toSet()
-        val focused = focusId?.let { id -> visible.firstOrNull { it.id == id && it.status == StepStatus.ACTION_REQUIRED } }
-        val current = focused
-            ?: visible.firstOrNull { it.status == StepStatus.ACTION_REQUIRED && it.id !in skippedIds }
-            ?: visible.firstOrNull { it.status == StepStatus.ACTION_REQUIRED }
+        val focusedStep = focusId?.let { id -> visible.firstOrNull { it.id == id } }
+        val current = OnboardingState.selectCurrent(visible, skippedIds, focusId)
+
+        // نمای قدم کامل: وقتی کاربر روی ردیف کامل‌شده در فهرست می‌زند یا با
+        // «بازگشت» به قدم کامل برمی‌گردد، کارت آن قدم با وضعیت کامل نشان داده
+        // می‌شود (قبلاً این کار هیچ تغییری نشان نمی‌داد و «بازگشت» بی‌اثر به نظر می‌رسید).
+        if (focusedStep != null && focusedStep.status == StepStatus.DONE) {
+            column.addView(UiKit.card(this) { c ->
+                c.addView(UiKit.title(this, "${focusedStep.titleFa} ✓", 18f))
+                c.addView(UiKit.body(this, whyText(focusedStep.id)))
+                c.addView(UiKit.body(this, "وضعیت: فعال ✓"))
+                c.addView(UiKit.primaryButton(this, "بازگشت به قدم جاری") {
+                    focusId = null
+                    showHelp = false
+                    render()
+                })
+            })
+            renderSummary(visible, skipped, null)
+            return
+        }
 
         if (current == null) {
             // همه کامل — صفحه‌ی پایان (صادقانه: بر اساس وضعیت واقعی، نه دکمه).

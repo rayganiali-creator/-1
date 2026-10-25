@@ -138,6 +138,24 @@ object OnboardingState {
         return visible.firstOrNull { it.status == StepStatus.ACTION_REQUIRED }
     }
 
+    /**
+     * انتخاب قدم جاری با احترام به فوکوس کاربر و رد کردن قدم‌های اختیاری (خالص).
+     * - فوکوس روی قدمِ اقدام لازم → همان قدم.
+     * - وگرنه اولین اقدام لازمِ ردنشده.
+     * - اگر همه‌ی باقی‌مانده‌ها رد شده‌اند → null (صفحه‌ی پایان)؛ قدم ردشده
+     *   هرگز به‌عنوان قدم جاری برنمی‌گردد (باگ نسخه‌ی قبل همین‌جا بود).
+     */
+    fun selectCurrent(
+        visible: List<SetupStep>,
+        skippedIds: Set<StepId>,
+        focusId: StepId?
+    ): SetupStep? {
+        focusId?.let { id ->
+            visible.firstOrNull { it.id == id && it.status == StepStatus.ACTION_REQUIRED }?.let { return it }
+        }
+        return visible.firstOrNull { it.status == StepStatus.ACTION_REQUIRED && it.id !in skippedIds }
+    }
+
     /** «X از Y قدم کامل شده» — فقط قدم‌های قابل‌نمایش شمرده می‌شوند. */
     fun progressText(steps: List<SetupStep>): String {
         val visible = visibleSteps(steps)

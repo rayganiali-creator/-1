@@ -22,6 +22,8 @@ class AiTestActivity : AppCompatActivity() {
     private lateinit var column: LinearLayout
     private var lastResult: String? = null
     private var intentionResult: String? = null
+    /** نمونه‌ی تایپ‌شده تا با بازسازی صفحه (بعد از تحلیل) پاک نشود. */
+    private var sampleText: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,10 +69,12 @@ class AiTestActivity : AppCompatActivity() {
             val field = UiKit.textField(this, "متن نمونه را بنویس…")
             field.setSingleLine(false)
             field.minLines = 3
+            field.setText(sampleText)
             c.addView(field)
             lastResult?.let { c.addView(UiKit.body(this, it, 13f)) }
             c.addView(UiKit.primaryButton(this, "تحلیل") {
                 val text = field.text.toString()
+                sampleText = text
                 val (decision, ms) = classifySample(text)
                 val recoveryHint = if (SemanticEngine.hasRecoveryContext(text)) {
                     "\nزمینه‌ی ترک/درمان در متن دیده شد."

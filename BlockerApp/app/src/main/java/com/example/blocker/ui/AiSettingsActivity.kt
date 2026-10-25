@@ -2,9 +2,11 @@ package com.example.blocker.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.blocker.PrefsManager
@@ -27,6 +29,14 @@ class AiSettingsActivity : AppCompatActivity() {
 
     private lateinit var column: LinearLayout
     private var datasetResult: String? = null
+    private var datasetResultView: TextView? = null
+    private var policyDescView: TextView? = null
+    // فیلدهای نیت یک بار ساخته و در رندرهای بعدی دوباره استفاده می‌شوند تا متن
+    // تایپ‌شده‌ی کاربر با تغییر سیاست یا اجرای تست دقت پاک نشود (باگ نسخه‌ی قبل).
+    private lateinit var nameField: EditText
+    private lateinit var descField: EditText
+    private lateinit var blockField: EditText
+    private lateinit var allowField: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +44,15 @@ class AiSettingsActivity : AppCompatActivity() {
         val (scroll, col) = UiKit.screen(this)
         column = col
         setContentView(scroll)
+        val intention = PrefsManager.getAiIntention(this)
+        nameField = UiKit.textField(this, "نام نیت، مثلاً: دوری از قمار").apply { setText(intention.name) }
+        descField = UiKit.textField(this, "توضیح کوتاه نیت").apply { setText(intention.description) }
+        blockField = UiKit.textField(this, "مثال‌هایی که باید بلاک شوند (هر کدام در یک خط)").apply {
+            setSingleLine(false); minLines = 3; setText(intention.blockExamples.joinToString("\n"))
+        }
+        allowField = UiKit.textField(this, "مثال‌هایی که نباید بلاک شوند (هر کدام در یک خط)").apply {
+            setSingleLine(false); minLines = 3; setText(intention.allowExamples.joinToString("\n"))
+        }
         render()
     }
 
@@ -44,11 +63,13 @@ class AiSettingsActivity : AppCompatActivity() {
 
     private fun render() {
         column.removeAllViews()
+        // نماهای ساخته‌شده در رندر قبل جدا شده‌اند؛ ارجاع‌های کهنه نباید به‌روز شوند.
+        datasetResultView = null
+        policyDescView = null
         val aiEnabled = PrefsManager.isAiEnabled(this)
         val policy = PrefsManager.getDecisionPolicy(this)
         val counts = PrefsManager.getAiCounts(this)
         val lastError = PrefsManager.getAiLastError(this)
-        val intention = PrefsManager.getAiIntention(this)
 
         column.addView(UiKit.title(this, "هوش روی دستگاه", 22f))
         column.addView(UiKit.body(this,
@@ -88,12 +109,15 @@ class AiSettingsActivity : AppCompatActivity() {
                 val rb = findViewById<RadioButton>(checkedId)
                 (rb?.tag as? DecisionPolicy)?.let {
                     PrefsManager.setDecisionPolicy(this, it)
+                    // فقط توضیح به‌روز می‌شود؛ رندر کامل، متن تایپ‌شده‌ی نیت را پاک می‌کرد.
+                    policyDescView?.text = it.descriptionFa
                     Toast.makeText(this, "سیاست روی «${it.labelFa}» تنظیم شد", Toast.LENGTH_SHORT).show()
-                    render()
                 }
             }
             c.addView(group)
-            c.addView(UiKit.body(this, policy.descriptionFa, 13f))
+            val descView = UiKit.body(this, policy.descriptionFa, 13f)
+            policyDescView = descView
+            c.addView(descView)
         })
 
         // شمارنده‌ها و آخرین خطا.
@@ -113,21 +137,9 @@ class AiSettingsActivity : AppCompatActivity() {
             c.addView(UiKit.title(this, "نیت من (به زبان خودت)", 17f))
             c.addView(UiKit.body(this,
                 "مثال‌ها برای آزمایش نیت‌اند؛ مدل را آموزش نمی‌دهند و قانون تازه نمی‌سازند. قانون‌گذاری از صفحه‌ی قوانین انجام می‌شود.", 13f))
-            val nameField = UiKit.textField(this, "نام نیت، مثلاً: دوری از قمار")
-            nameField.setText(intention.name)
             c.addView(nameField)
-            val descField = UiKit.textField(this, "توضیح کوتاه نیت")
-            descField.setText(intention.description)
             c.addView(descField)
-            val blockField = UiKit.textField(this, "مثال‌هایی که باید بلاک شوند (هر کدام در یک خط)")
-            blockField.setSingleLine(false)
-            blockField.minLines = 3
-            blockField.setText(intention.blockExamples.joinToString("\n"))
             c.addView(blockField)
-            val allowField = UiKit.textField(this, "مثال‌هایی که نباید بلاک شوند (هر کدام در یک خط)")
-            allowField.setSingleLine(false)
-            allowField.minLines = 3
-            allowField.setText(intention.allowExamples.joinToString("\n"))
             c.addView(allowField)
             c.addView(UiKit.tonalButton(this, "ذخیره‌ی نیت") {
                 val saved = AiIntention(
@@ -147,7 +159,11 @@ class AiSettingsActivity : AppCompatActivity() {
             c.addView(UiKit.body(this,
                 "مجموعه‌ی ثابت ${AiTestDataset.cases.size} موردی (مثبت، استفاده‌ی بی‌ضرر از همان کلمه، بحث آموزشی، " +
                 "نفی، نقل‌قول، غلط املایی، متن مخلوط، ورودی خالی) با سیاست Balanced اجرا می‌شود.", 13f))
-            datasetResult?.let { c.addView(UiKit.body(this, it, 13f)) }
+            datasetResult?.let {
+                val v = UiKit.body(this, it, 13f)
+                datasetResultView = v
+                c.addView(v)
+            }
             c.addView(UiKit.tonalButton(this, "اجرای مجموعه‌ی تست") {
                 val metrics = AiTestDataset.evaluate { text ->
                     AiEngine.classify(
@@ -162,7 +178,10 @@ class AiSettingsActivity : AppCompatActivity() {
                     "مشکوک: ${metrics.uncertainPredicted}\n" +
                     "نکته: دو مثبت کاذب، نقاط ضعف شناخته‌شده‌اند (نقل‌قول و بحث آموزشی با کلمه‌ی دقیق)؛ " +
                     "عددها واقعی‌اند، نه هدف‌گذاری."
-                render()
+                // اگر نما از رندر جاری هست، در جا به‌روز شو؛ وگرنه رندر کن (فیلدهای
+                // نیت حالا نمونه‌های ماندگارند و با رندر پاک نمی‌شوند).
+                val v = datasetResultView
+                if (v != null) v.text = datasetResult else render()
             })
         })
 

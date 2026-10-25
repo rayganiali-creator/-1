@@ -28,12 +28,35 @@ class BackupActivity : AppCompatActivity() {
         }
     }
 
+    companion object {
+        /** سقف حجم فایل بکاپ: بکاپ واقعی JSON در حد چند ده کیلوبایت است؛ فایل بزرگ‌تر، خراب یا مخرب تلقی می‌شود. */
+        const val MAX_BACKUP_BYTES = 1024 * 1024
+    }
+
+    /** خواندن فایل با سقف حجم؛ بیش از سقف → null (بدون اینکه کل فایل به حافظه بیاید). */
+    private fun readBackupTextCapped(uri: android.net.Uri): String? {
+        val stream = contentResolver.openInputStream(uri) ?: return null
+        stream.use { input ->
+            val out = java.io.ByteArrayOutputStream()
+            val buf = ByteArray(8192)
+            var total = 0
+            while (true) {
+                val n = input.read(buf)
+                if (n < 0) break
+                total += n
+                if (total > MAX_BACKUP_BYTES) return null
+                out.write(buf, 0, n)
+            }
+            return out.toString(Charsets.UTF_8.name())
+        }
+    }
+
     private val importLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val uri = result.data?.data ?: return@registerForActivityResult
         val text = try {
-            contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.readText()
+            readBackupTextCapped(uri)
         } catch (e: Exception) { null }
-        if (text == null) { Toast.makeText(this, "خواندن فایل ممکن نشد", Toast.LENGTH_LONG).show(); return@registerForActivityResult }
+        if (text == null) { Toast.makeText(this, "خواندن فایل ممکن نشد یا حجم آن بیش از حد مجاز است (حداکثر ۱ مگابایت)", Toast.LENGTH_LONG).show(); return@registerForActivityResult }
         val error = BackupManager.validateBackup(text)
         if (error != null) {
             AlertDialog.Builder(this).setTitle("بکاپ نامعتبر است").setMessage(error)

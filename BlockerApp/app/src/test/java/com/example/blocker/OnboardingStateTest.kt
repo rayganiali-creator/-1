@@ -78,6 +78,50 @@ class OnboardingStateTest {
         assertFalse(OnboardingState.isSamsung(signals(34, null, "Google")))
     }
 
+    @Test fun selectCurrentRespectsSkipAndFocus() {
+        fun step(id: OnboardingState.StepId, status: OnboardingState.StepStatus) =
+            OnboardingState.SetupStep(id, id.name, required = false, status = status)
+        val visible = listOf(
+            step(OnboardingState.StepId.ACCESSIBILITY, OnboardingState.StepStatus.ACTION_REQUIRED),
+            step(OnboardingState.StepId.BATTERY, OnboardingState.StepStatus.ACTION_REQUIRED),
+            step(OnboardingState.StepId.EXACT_ALARMS, OnboardingState.StepStatus.ACTION_REQUIRED)
+        )
+        // بدون فوکوس و رد کردن: اولین اقدام لازم.
+        assertEquals(
+            OnboardingState.StepId.ACCESSIBILITY,
+            OnboardingState.selectCurrent(visible, emptySet(), null)?.id
+        )
+        // رد کردن همه‌ی باقی‌مانده‌ها → null (صفحه‌ی پایان)، نه بازگشت قدم ردشده.
+        assertNull(
+            OnboardingState.selectCurrent(
+                visible, setOf(
+                    OnboardingState.StepId.ACCESSIBILITY,
+                    OnboardingState.StepId.BATTERY,
+                    OnboardingState.StepId.EXACT_ALARMS
+                ), null
+            )
+        )
+        // رد کردن جزئی: اولین ردنشده.
+        assertEquals(
+            OnboardingState.StepId.BATTERY,
+            OnboardingState.selectCurrent(visible, setOf(OnboardingState.StepId.ACCESSIBILITY), null)?.id
+        )
+        // فوکوس روی قدم اقدام لازم، بر ترتیب غلبه می‌کند.
+        assertEquals(
+            OnboardingState.StepId.EXACT_ALARMS,
+            OnboardingState.selectCurrent(visible, emptySet(), OnboardingState.StepId.EXACT_ALARMS)?.id
+        )
+        // فوکوس روی قدم کامل نادیده گرفته می‌شود (نمایش آن با شاخه‌ی جداست).
+        val withDone = listOf(
+            step(OnboardingState.StepId.ACCESSIBILITY, OnboardingState.StepStatus.DONE),
+            step(OnboardingState.StepId.BATTERY, OnboardingState.StepStatus.ACTION_REQUIRED)
+        )
+        assertEquals(
+            OnboardingState.StepId.BATTERY,
+            OnboardingState.selectCurrent(withDone, emptySet(), OnboardingState.StepId.ACCESSIBILITY)?.id
+        )
+    }
+
     @Test fun troubleshootingExistsForEveryStep() {
         for (step in StepId.values()) {
             assertTrue(step.name, OnboardingState.troubleshooting(step, true).isNotEmpty())
