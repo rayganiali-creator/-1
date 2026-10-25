@@ -75,7 +75,13 @@ class SessionForegroundService : Service() {
 
     private fun startWidgetTicker() {
         handler.removeCallbacks(widgetTicker)
-        if (SessionWidgetUpdater.hasWidget(this)) handler.post(widgetTicker)
+        // ویجت قابلیت جانبی است؛ خرابی provider یا داده‌ی ویجت نباید
+        // سرویس اصلی سشن را متوقف کند.
+        try {
+            if (SessionWidgetUpdater.hasWidget(this)) handler.post(widgetTicker)
+        } catch (e: Exception) {
+            handler.removeCallbacks(widgetTicker)
+        }
     }
     private val ticker = object : Runnable {
         override fun run() {
