@@ -15,6 +15,7 @@ class BlockedScreenActivity : AppCompatActivity() {
         const val EXTRA_MESSAGE = "extra_message"
         const val EXTRA_RULE_ID = "extra_rule_id"
         const val EXTRA_EVIDENCE = "extra_evidence"
+        const val EXTRA_PACKAGE_NAME = "extra_package_name"
     }
 
     private lateinit var binding: ActivityBlockedScreenBinding
