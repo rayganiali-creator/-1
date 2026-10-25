@@ -45,6 +45,7 @@ class BlockAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "BlockerService"
+        private val LIVE_SEARCH_PACKAGES = setOf("org.telegram.messenger", "com.instagram.android")
         @Volatile var instanceAlive: Boolean = false
 
         private val URL_BAR_IDS = listOf(
@@ -148,9 +149,13 @@ class BlockAccessibilityService : AccessibilityService() {
             val activeWindowPackage = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
             if (OwnAppGuard.shouldSkip(packageName, activeWindowPackage, this.packageName)) return
 
-            if (checkSelfProtection(packageName)) return
+            val targetPackage = activeWindowPackage ?: packageName
+            if (checkSelfProtection(targetPackage)) return
             val config = effectiveConfig()
-            val candidate = findCandidate(packageName, config)
+            val keywordTriggerAllowed =
+                (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED && targetPackage in LIVE_SEARCH_PACKAGES) ||
+                (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && isSearchActionEvent(event))
+            val candidate = findCandidate(targetPackage, config, keywordTriggerAllowed)
 
             if (candidate == null) {
                 // کانتکست دیگر واجد شرایط نیست → اقدام معلق کنسل شود
@@ -306,7 +311,11 @@ class BlockAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun findCandidate(packageName: String, config: EffectiveConfig): Candidate? {
+    private fun findCandidate(
+        packageName: String,
+        config: EffectiveConfig,
+        keywordTriggerAllowed: Boolean = true
+    ): Candidate? {
         // دفاع دوم: حتی اگر رخداد از جای دیگری آمده باشد (مثلاً بازبینی بلاک معلق
         // زمان‌دار)، متن پنجره‌ی خودمان هرگز ارزیابی نمی‌شود.
         val activeWindowPackage = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
@@ -338,7 +347,7 @@ class BlockAccessibilityService : AccessibilityService() {
             // طبقه‌بندی معنایی + سیاست آستانه + کش + بازگشت امن) و اجازه‌های
             // آموخته‌شده — فقط روی متنِ ورودی (جستجو/نوار آدرس) و متن محتوای
             // غیرلیستی؛ متن داخل لیست‌ها (تاریخچه، پیشنهادها، فید) به‌تنهایی بلاک نمی‌کند.
-            if (config.rules.isNotEmpty()) {
+            if (config.rules.isNotEmpty() && keywordTriggerAllowed) {
                 val inputText = StringBuilder()
                 val contentText = StringBuilder()
                 collectScopedText(root, inputText, contentText, inList = false, maxNodes = 400)
@@ -402,6 +411,27 @@ class BlockAccessibilityService : AccessibilityService() {
             val child = node.getChild(i) ?: continue
             try { collectScopedText(child, inputSb, contentSb, nowInList, maxNodes, visited) } finally { child.recycle() }
         }
+    }
+
+
+    /** تشخیص محافظه‌کارانه‌ی عمل جستجو/ارسال در فیلد ورودی قابل‌دسترسی. */
+    private fun isSearchActionEvent(event: AccessibilityEvent): Boolean {
+        val parts = mutableListOf<String>()
+        event.text?.forEach { parts += it.toString() }
+        event.contentDescription?.toString()?.let { parts += it }
+        val source = try { event.source } catch (_: Exception) { null }
+        if (source != null) {
+            try {
+                source.text?.toString()?.let { parts += it }
+                source.contentDescription?.toString()?.let { parts += it }
+                source.viewIdResourceName?.let { parts += it }
+            } finally {
+                source.recycle()
+            }
+        }
+        val label = parts.joinToString(" ").lowercase()
+        return listOf("search", "query", "submit", "ime", "enter", "جستجو", "جست‌وجو", "بگرد", "انتقال")
+            .any { label.contains(it) }
     }
 
     private fun findUrlText(root: AccessibilityNodeInfo): String? {
