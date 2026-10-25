@@ -48,6 +48,8 @@ class OnboardingActivity : AppCompatActivity() {
     /** قدمی که کاربر با «بازگشت» یا زدن روی فهرست انتخاب کرده؛ null یعنی قدم جاری خودکار. */
     private var focusId: StepId? = null
     private var showHelp: Boolean = false
+    /** پس از بازگشت از اطلاعات برنامه، کاربر را مستقیم به قدم دسترسی هدایت می‌کنیم. */
+    private var returningFromRestrictedSettings: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +64,11 @@ class OnboardingActivity : AppCompatActivity() {
     /** بازگشت از تنظیمات = بازخوانی واقعی وضعیت؛ هرگز «خودکار جلو رفتن» نیست. */
     override fun onResume() {
         super.onResume()
+        if (returningFromRestrictedSettings) {
+            returningFromRestrictedSettings = false
+            focusId = StepId.ACCESSIBILITY
+            showHelp = false
+        }
         render()
     }
 
@@ -168,9 +175,12 @@ class OnboardingActivity : AppCompatActivity() {
     private fun runAction(stepId: StepId) {
         try {
             when (stepId) {
-                StepId.RESTRICTED_SETTINGS -> startActivity(
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
-                )
+                StepId.RESTRICTED_SETTINGS -> {
+                    returningFromRestrictedSettings = true
+                    startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+                    )
+                }
                 StepId.ACCESSIBILITY -> startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 StepId.NOTIFICATIONS -> {
                     if (Build.VERSION.SDK_INT >= 33) {
@@ -284,6 +294,11 @@ class OnboardingActivity : AppCompatActivity() {
             c.addView(UiKit.title(this, "قدم $position از ${visible.size}: ${current.titleFa}", 18f))
             c.addView(UiKit.body(this, whyText(current.id)))
             c.addView(UiKit.body(this, "چه چیزی باید ببینی: " + seeText(current.id, samsung), 13f))
+            if (current.id == StepId.ACCESSIBILITY && OnboardingState.restrictedSettingsLikely(signals)) {
+                c.addView(UiKit.body(this,
+                    "اگر دکمه‌ی روشن‌کردن «سد» خاکستری یا غیرفعال است: از فهرست پایین، قدم «باز کردن قفل تنظیمات محدودشده» را باز کن؛ سه‌نقطه‌ی صفحه‌ی اطلاعات برنامه را بزن و Allow restricted settings و سپس Allow را انتخاب کن. بعد به این قدم برگرد.",
+                    13f))
+            }
             if (current.id == StepId.RESTRICTED_SETTINGS || current.id == StepId.ACCESSIBILITY) {
                 // راهنمای شماتیک — صراحتاً نه اسکرین‌شات: تصویر واقعی گوشی تو ممکن است کمی فرق کند.
                 c.addView(UiKit.body(this,
