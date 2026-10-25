@@ -383,12 +383,20 @@ object UiKit {
             setOnClickListener { onClick() }
         }
 
+    /**
+     * ردیف افقی: چپ منبسط می‌شود، راست فشرده می‌ماند.
+     * قرارداد مهم: عرض فرزند راست همیشه WRAP_CONTENT می‌شود؛ اگر فرزند راست
+     * MATCH_PARENT باشد (مثل UiKit.body)، در LinearLayout افقی تمام عرض را
+     * می‌گیرد و فرزند چپ به عرض صفر له می‌شود (باگی که عنوان‌های فهرست
+     * خلاصه‌ی آنبوردینگ را نامرئی می‌کرد).
+     */
     fun row(context: Context, left: View, right: View): LinearLayout = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { bottomMargin = dp(context, 6) }
         left.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        right.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         addView(left)
         addView(right)
     }

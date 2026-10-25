@@ -115,15 +115,28 @@ class OnboardingActivity : AppCompatActivity() {
     }
 
     private fun seeText(stepId: StepId, samsung: Boolean): String = when (stepId) {
-        StepId.RESTRICTED_SETTINGS -> "صفحه‌ی اطلاعات برنامه‌ی سد باز می‌شود → بالای صفحه ⋮ (سه‌نقطه) → «Allow restricted settings» → «Allow»."
+        // بدون زنجیره‌ی «→»: ترکیب فارسی + انگلیسی + پیکان در متن راست‌به‌چپ،
+        // ترتیب نمایش را به‌هم می‌ریزد. قدم‌ها شماره‌دار و هر کدام در یک خط‌اند.
+        StepId.RESTRICTED_SETTINGS -> "۱) صفحه‌ی اطلاعات برنامه‌ی سد باز می‌شود.\n" +
+            "۲) بالای صفحه، سه‌نقطه را بزن.\n" +
+            "۳) گزینه‌ی Allow restricted settings را انتخاب کن.\n" +
+            "۴) Allow را بزن."
         StepId.ACCESSIBILITY -> if (samsung) {
-            "تنظیمات → Accessibility → Installed apps → «سد» → دکمه را روشن کن → اگر هشدار آمد، «Allow» را بزن."
+            "۱) وارد تنظیمات شو.\n" +
+            "۲) Accessibility را باز کن.\n" +
+            "۳) Installed apps را باز کن.\n" +
+            "۴) سد را انتخاب کن و دکمه را روشن کن.\n" +
+            "۵) اگر هشدار آمد، Allow را بزن."
         } else {
-            "تنظیمات → Accessibility → Downloaded apps → «سد» → دکمه را روشن کن → اگر هشدار آمد، «Allow» را بزن."
+            "۱) وارد تنظیمات شو.\n" +
+            "۲) Accessibility را باز کن.\n" +
+            "۳) Downloaded apps را باز کن.\n" +
+            "۴) سد را انتخاب کن و دکمه را روشن کن.\n" +
+            "۵) اگر هشدار آمد، Allow را بزن."
         }
-        StepId.NOTIFICATIONS -> "دیالوگ سیستم می‌پرسد نوتیفیکیشن مجاز باشد؛ «Allow» را بزن."
-        StepId.BATTERY -> "دیالوگ سیستم می‌پرسد بهینه‌سازی باتری نادیده گرفته شود؛ «Allow» را بزن."
-        StepId.EXACT_ALARMS -> "صفحه‌ی آلارم‌ها باز می‌شود؛ «سد» را مجاز کن."
+        StepId.NOTIFICATIONS -> "دیالوگ سیستم می‌پرسد نوتیفیکیشن مجاز باشد؛ Allow را بزن."
+        StepId.BATTERY -> "دیالوگ سیستم می‌پرسد بهینه‌سازی باتری نادیده گرفته شود؛ Allow را بزن."
+        StepId.EXACT_ALARMS -> "صفحه‌ی آلارم‌ها باز می‌شود؛ سد را مجاز کن."
         StepId.CONFIG -> "صفحه‌ی قوانین باز می‌شود؛ یک قانون اضافه کن و با دکمه‌ی برگشت به همین‌جا برگرد."
     }
 
@@ -169,7 +182,28 @@ class OnboardingActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * رندر هرگز نباید صفحه‌ی خالی تحویل بدهد: اگر خواندن وضعیت (مثلاً داده‌ی
+     * خراب در حافظه) وسط رندر استثنا بدهد، به‌جای صفحه‌ی سفید، کارت خطا با
+     * مسیر جایگزینِ مستقیم به تنظیمات نشان داده می‌شود.
+     */
     private fun render() {
+        try {
+            renderInner()
+        } catch (e: Exception) {
+            column.removeAllViews()
+            column.addView(UiKit.title(this, "راه‌اندازی سد — قدم‌به‌قدم", 22f))
+            column.addView(UiKit.body(this,
+                "نمایش راهنما به مشکل خورد (${e.message ?: "خطای نامشخص"}). می‌توانی مستقیم " +
+                "به تنظیمات دسترسی بروی و سد را فعال کنی؛ بعد با «بررسی دوباره» همین‌جا برگرد."))
+            column.addView(UiKit.primaryButton(this, "باز کردن تنظیمات دسترسی") {
+                runAction(StepId.ACCESSIBILITY)
+            })
+            column.addView(UiKit.outlinedButton(this, "تلاش دوباره") { render() })
+        }
+    }
+
+    private fun renderInner() {
         column.removeAllViews()
         val signals = deviceSignals()
         val steps = OnboardingState.buildSteps(signals, verifiedStates())
@@ -238,11 +272,11 @@ class OnboardingActivity : AppCompatActivity() {
                     "راهنمای شماتیک (تصویر واقعی تنظیمات گوشی تو ممکن است در جزئیات فرق کند):", 12f))
                 c.addView(UiKit.body(this,
                     if (current.id == StepId.RESTRICTED_SETTINGS) {
-                        "اطلاعات برنامه‌ی سد  →  ⋮ (سه‌نقطه، بالا)  →  Allow restricted settings  →  Allow"
+                        "اطلاعات برنامه‌ی سد\n↓\nسه‌نقطه (بالا)\n↓\nAllow restricted settings\n↓\nAllow"
                     } else if (samsung) {
-                        "تنظیمات  →  Accessibility  →  Installed apps  →  سد  →  روشن"
+                        "تنظیمات\n↓\nAccessibility\n↓\nInstalled apps\n↓\nسد\n↓\nروشن"
                     } else {
-                        "تنظیمات  →  Accessibility  →  Downloaded apps  →  سد  →  روشن"
+                        "تنظیمات\n↓\nAccessibility\n↓\nDownloaded apps\n↓\nسد\n↓\nروشن"
                     }, 13f))
                 if (current.id == StepId.ACCESSIBILITY && !samsung) {
                     c.addView(UiKit.body(this, "در سامسونگ، بخش «Installed apps» است؛ در بقیه، «Downloaded apps» یا «نصب‌شده‌ها».", 12f))
@@ -306,7 +340,7 @@ class OnboardingActivity : AppCompatActivity() {
                     else -> "اقدام لازم"
                 }
                 val row = UiKit.row(this,
-                    UiKit.body(this, step.titleFa + if (step.id == currentId) " ← قدم جاری" else ""),
+                    UiKit.body(this, step.titleFa + if (step.id == currentId) " (قدم جاری)" else ""),
                     UiKit.body(this, statusText, 13f))
                 row.setOnClickListener {
                     if (step.id.name in skipped) PrefsManager.removeSkippedOnboardingStep(this, step.id.name)
