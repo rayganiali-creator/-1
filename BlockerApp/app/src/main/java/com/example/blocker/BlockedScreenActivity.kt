@@ -43,11 +43,12 @@ class BlockedScreenActivity : AppCompatActivity() {
         // دیگر بلاک نمی‌شود — موتور از همین‌جا یاد می‌گیرد.
         val ruleId = intent.getStringExtra(EXTRA_RULE_ID)
         val evidence = intent.getStringExtra(EXTRA_EVIDENCE)
+        val sourcePackage = intent.getStringExtra(EXTRA_PACKAGE_NAME).orEmpty()
         val btnWrong = findViewById<android.widget.TextView>(R.id.btnWrongBlock)
         if (!ruleId.isNullOrBlank() && !evidence.isNullOrBlank()) {
             btnWrong.visibility = android.view.View.VISIBLE
             btnWrong.setOnClickListener {
-                PrefsManager.addLearnedAllow(this, ruleId, evidence)
+                PrefsManager.addLearnedAllow(this, ruleId, evidence, sourcePackage)
                 android.widget.Toast.makeText(
                     this, "یاد گرفتم؛ این عبارت دیگر برای این قانون بلاک نمی‌شود",
                     android.widget.Toast.LENGTH_SHORT
