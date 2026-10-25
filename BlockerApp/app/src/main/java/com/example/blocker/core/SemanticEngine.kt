@@ -156,7 +156,8 @@ object SemanticEngine {
         normalizedText: String,
         recoveryCount: Int,
         learned: Set<String>,
-        minScore: Double
+        minScore: Double,
+        packageName: String?
     ): ScoreResult? {
         val needle = TextNormalizer.normalize(rule.text.trim())
         if (needle.isEmpty()) return null
@@ -165,13 +166,16 @@ object SemanticEngine {
         // ۱٫۰ خودش تصمیم بگیرد؛ کف سیاست فقط روی شواهد معنایی اثر دارد.
         if (needle.contains(' ')) {
             val exact = KeywordMatcher.match(rule, normalizedText) ?: return null
+            // Negative feedback is scoped to the same rule, evidence, and app.
+            val learnedKey = "${rule.id}|${packageName.orEmpty()}|${evidenceKey(exact.matchedText)}"
+            if (learnedKey in learned) return null
             val score = EXACT_SCORE - RECOVERY_PENALTY * minOf(recoveryCount, 2)
             return ScoreResult(rule, score, exact.matchedText, exact = true)
         }
         val ruleStem = stem(needle)
         if (ruleStem.isEmpty()) return null
         // حذف توکن‌هایی که کاربر برای همین قانون «اشتباه» اعلام کرده است.
-        val kept = tokens.indices.filter { "${rule.id}|${stems[it]}" !in learned }
+        val kept = tokens.indices.filter { "${rule.id}|${packageName.orEmpty()}|${stems[it]}" !in learned }
         if (kept.isEmpty()) return null
         var base = 0.0
         var evidence = rule.text
@@ -244,13 +248,13 @@ object SemanticEngine {
         for (rule in applicable) {
             // وتوی allow همیشه به شواهد واقعی (≥ ۱٫۰) نیاز دارد؛ سیگنال ضعیفِ
             // یک قانون اجازه نباید بلاکِ قوی را خنثی کند.
-            if (rule.isAllow && scoreRule(rule, tokens, stems, normalized, recoveryCount, learned, THRESHOLD) != null) {
+            if (rule.isAllow && scoreRule(rule, tokens, stems, normalized, recoveryCount, learned, THRESHOLD, packageName) != null) {
                 return null
             }
         }
         for (rule in applicable) {
             if (!rule.isAllow) {
-                scoreRule(rule, tokens, stems, normalized, recoveryCount, learned, minScore)?.let { return it }
+                scoreRule(rule, tokens, stems, normalized, recoveryCount, learned, minScore, packageName)?.let { return it }
             }
         }
         return null
