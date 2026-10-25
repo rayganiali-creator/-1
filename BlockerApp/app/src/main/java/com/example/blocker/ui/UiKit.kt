@@ -99,18 +99,20 @@ object UiKit {
      * خط نسخه‌ی نصب‌شده (برای اینکه گزارش خرابی همیشه بگوید روی کدام بیلد است).
      * خواندن نسخه هرگز نباید رندر را خراب کند؛ در صورت خطا null برمی‌گردد.
      */
-    fun versionLine(context: Context): TextView? = try {
-        val info = context.packageManager.getPackageInfo(context.packageName, 0)
-        val name = info.versionName ?: return null
-        TextView(context).apply {
-            text = "نسخه‌ی $name"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            setTextColor(ThemePalette.resolve(context).onSurfaceVariant)
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { topMargin = dp(context, 16) }
-        }
-    } catch (e: Exception) { null }
+    fun versionLine(context: Context): TextView? {
+        return try {
+            val info = context.packageManager.getPackageInfo(context.packageName, 0)
+            val name = info.versionName ?: return null
+            TextView(context).apply {
+                text = "نسخه‌ی $name"
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setTextColor(ThemePalette.resolve(context).onSurfaceVariant)
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    .apply { topMargin = dp(context, 16) }
+            }
+        } catch (e: Exception) { null }
+    }
 
     fun card(context: Context, build: (LinearLayout) -> Unit): MaterialCardView {
         val card = MaterialCardView(context).apply {
