@@ -57,6 +57,7 @@ class SessionForegroundService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var alertShown = false
+    private var foregroundStarted = false
 
     /** تیک زنده‌ی ویجت (هر ثانیه)؛ فقط وقتی ویجتی نصب شده است.
      * بدنه زیر چتر است: استثنای نادرِ تیکر روی نخ اصلی، کل فرایند را نمی‌کشد؛
@@ -115,32 +116,69 @@ class SessionForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val s = SessionManager.activeSession(this)
-        if (s == null) { stopSelf(); return START_NOT_STICKY }
-        val notif = buildNotification(s)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        } else {
-            startForeground(NOTIF_ID, notif)
-        }
-        running = true
-        // تشخیص شروع سرویس برای صفحه‌ی سلامت (زمان + شمارنده؛ بدون محتوای صفحه).
+        // START_STICKY ممکن است سرویس را با intent=null بازسازی کند؛ وضعیت سشن
+        // از ذخیره‌سازی خوانده می‌شود و intent منبع حقیقت نیست.
         try {
-            PrefsManager.recordServiceStart(this)
-        } catch (ignored: Exception) {
+            val s = SessionManager.activeSession(this)
+            if (s == null) {
+                handler.removeCallbacks(ticker)
+                handler.removeCallbacks(widgetTicker)
+                running = false
+                stopSelfResult(startId)
+                return START_NOT_STICKY
+            }
+
+            // سرویس باید فوراً foreground شود، پیش از کارهای جانبی.
+            val notif = buildNotification(s)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(NOTIF_ID, notif)
+            }
+            foregroundStarted = true
+            running = true
+
+            try {
+                PrefsManager.recordServiceStart(this)
+            } catch (ignored: Exception) {
+                // خرابی آمار تشخیصی نباید سرویس را از کار بیندازد.
+            }
+
+            handler.removeCallbacks(ticker)
+            handler.postDelayed(ticker, 30_000L)
+            try { SessionWidgetUpdater.updateAll(this) } catch (ignored: Exception) {}
+            startWidgetTicker()
+            return START_STICKY
+        } catch (e: Exception) {
+            // اگر اندروید ارتقای سرویس را رد کند، استثنا را به crash تبدیل نکن.
+            running = false
+            handler.removeCallbacks(ticker)
+            handler.removeCallbacks(widgetTicker)
+            try { PrefsManager.recordProtectionFailure(this, "fgs_start_or_promote_failed") } catch (ignored: Exception) {}
+            if (foregroundStarted) {
+                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (ignored: Exception) {}
+                foregroundStarted = false
+            }
+            stopSelfResult(startId)
+            return START_NOT_STICKY
         }
-        handler.removeCallbacks(ticker)
-        handler.postDelayed(ticker, 30_000L)
-        SessionWidgetUpdater.updateAll(this)
-        startWidgetTicker()
-        return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // بستن کارت برنامه از صفحه‌ی اخیرها را پایان سشن تلقی نمی‌کنیم.
+        // استارت خودکار از پس‌زمینه عمداً انجام نمی‌شود؛ اندروید آن را محدود می‌کند.
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
         running = false
         handler.removeCallbacks(ticker)
         handler.removeCallbacks(widgetTicker)
-        SessionWidgetUpdater.updateAll(this)
+        if (foregroundStarted) {
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (ignored: Exception) {}
+            foregroundStarted = false
+        }
+        try { SessionWidgetUpdater.updateAll(this) } catch (ignored: Exception) {}
         super.onDestroy()
     }
 
