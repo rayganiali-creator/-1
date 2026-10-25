@@ -429,6 +429,7 @@ class BlockAccessibilityService : AccessibilityService() {
             // برای بازخورد یادگیری روی صفحه‌ی بلاک (فقط بلاک کلمه‌کلیدی).
             candidate.ruleId?.let { putExtra(BlockedScreenActivity.EXTRA_RULE_ID, it) }
             candidate.evidence?.let { putExtra(BlockedScreenActivity.EXTRA_EVIDENCE, it) }
+            if (candidate.ruleId != null) putExtra(BlockedScreenActivity.EXTRA_PACKAGE_NAME, candidate.packageName)
         }
         startActivity(intent)
     }
