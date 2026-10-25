@@ -85,18 +85,34 @@ class OnboardingActivity : AppCompatActivity() {
         )
     }
 
+    /**
+     * هر وضعیت جداگانه خوانده می‌شود؛ خطا در یک خواندن، بقیه را خراب نمی‌کند
+     * و صفحه را خالی نمی‌گذارد. پیش‌فرض خطا «فعال نیست» است (جهت امن: قدم
+     * نشان داده می‌شود، نه اینکه پنهان شود).
+     */
     private fun verifiedStates(): OnboardingState.VerifiedStates {
-        val notifications = NotificationManagerCompat.from(this).areNotificationsEnabled()
-        val battery = (getSystemService(Context.POWER_SERVICE) as PowerManager)
-            .isIgnoringBatteryOptimizations(packageName)
-        val exactAlarms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            (getSystemService(Context.ALARM_SERVICE) as AlarmManager).canScheduleExactAlarms()
-        } else true
-        val hasConfig = PrefsManager.getRules(this).isNotEmpty() ||
-            PrefsManager.getBlockedApps(this).isNotEmpty() ||
-            PrefsManager.getBlockedWebsites(this).isNotEmpty()
+        val notifications = try {
+            NotificationManagerCompat.from(this).areNotificationsEnabled()
+        } catch (e: Exception) { false }
+        val battery = try {
+            (getSystemService(Context.POWER_SERVICE) as PowerManager)
+                .isIgnoringBatteryOptimizations(packageName)
+        } catch (e: Exception) { false }
+        val exactAlarms = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (getSystemService(Context.ALARM_SERVICE) as AlarmManager).canScheduleExactAlarms()
+            } else true
+        } catch (e: Exception) { false }
+        val hasConfig = try {
+            PrefsManager.getRules(this).isNotEmpty() ||
+                PrefsManager.getBlockedApps(this).isNotEmpty() ||
+                PrefsManager.getBlockedWebsites(this).isNotEmpty()
+        } catch (e: Exception) { false }
+        val a11y = try {
+            ProtectionHealth.isAccessibilityEnabled(this)
+        } catch (e: Exception) { false }
         return OnboardingState.VerifiedStates(
-            a11y = ProtectionHealth.isAccessibilityEnabled(this),
+            a11y = a11y,
             notifications = notifications,
             battery = battery,
             exactAlarms = exactAlarms,
@@ -194,12 +210,14 @@ class OnboardingActivity : AppCompatActivity() {
             column.removeAllViews()
             column.addView(UiKit.title(this, "راه‌اندازی سد — قدم‌به‌قدم", 22f))
             column.addView(UiKit.body(this,
-                "نمایش راهنما به مشکل خورد (${e.message ?: "خطای نامشخص"}). می‌توانی مستقیم " +
+                "نمایش راهنما به مشکل خورد (${e.javaClass.simpleName}: ${e.message ?: "خطای نامشخص"}). می‌توانی مستقیم " +
                 "به تنظیمات دسترسی بروی و سد را فعال کنی؛ بعد با «بررسی دوباره» همین‌جا برگرد."))
             column.addView(UiKit.primaryButton(this, "باز کردن تنظیمات دسترسی") {
                 runAction(StepId.ACCESSIBILITY)
             })
             column.addView(UiKit.outlinedButton(this, "تلاش دوباره") { render() })
+        } finally {
+            UiKit.versionLine(this)?.let { column.addView(it) }
         }
     }
 

@@ -57,9 +57,21 @@ object PrefsManager {
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    /**
+     * خواندن امن مجموعه‌ی رشته‌ای: اگر داده‌ی قدیمی زیر همان کلید نوع دیگری
+     * داشته باشد، getStringSet استثنای ClassCast می‌دهد و صفحه‌ی خواننده را
+     * خالی می‌گذارد. در آن صورت مجموعه‌ی خالی برمی‌گردد (جهت امن: قدم‌ها
+     * نشان داده می‌شوند، نه پنهان).
+     */
+    private fun safeStringSet(context: Context, key: String): Set<String> = try {
+        prefs(context).getStringSet(key, emptySet()) ?: emptySet()
+    } catch (e: Exception) {
+        emptySet()
+    }
+
     // ---------- برنامه‌های مسدود شده ----------
     fun getBlockedApps(context: Context): MutableSet<String> =
-        HashSet(prefs(context).getStringSet(KEY_BLOCKED_APPS, emptySet()) ?: emptySet())
+        HashSet(safeStringSet(context, KEY_BLOCKED_APPS))
 
     fun setBlockedApps(context: Context, apps: Set<String>) {
         prefs(context).edit().putStringSet(KEY_BLOCKED_APPS, apps).apply()
@@ -73,7 +85,7 @@ object PrefsManager {
 
     // ---------- سایت‌های مسدود شده ----------
     fun getBlockedWebsites(context: Context): MutableSet<String> =
-        LinkedHashSet(prefs(context).getStringSet(KEY_BLOCKED_WEBSITES, emptySet()) ?: emptySet())
+        LinkedHashSet(safeStringSet(context, KEY_BLOCKED_WEBSITES))
 
     fun addBlockedWebsite(context: Context, domain: String) {
         val set = getBlockedWebsites(context)
@@ -89,7 +101,7 @@ object PrefsManager {
 
     // ---------- کلمات کلیدی: API قدیمی (سازگاری) ----------
     fun getBlockedKeywords(context: Context): MutableSet<String> =
-        LinkedHashSet(prefs(context).getStringSet(KEY_BLOCKED_KEYWORDS, emptySet()) ?: emptySet())
+        LinkedHashSet(safeStringSet(context, KEY_BLOCKED_KEYWORDS))
 
     fun addBlockedKeyword(context: Context, keyword: String) {
         addRule(context, KeywordRule(id = newId(), text = keyword.trim()))
@@ -146,7 +158,7 @@ object PrefsManager {
 
     /** اجازه‌های آموخته‌شده از بازخورد کاربر روی صفحه‌ی بلاک. */
     fun getLearnedAllow(context: Context): Set<String> =
-        HashSet(prefs(context).getStringSet(KEY_LEARNED_ALLOW, emptySet()) ?: emptySet())
+        HashSet(safeStringSet(context, KEY_LEARNED_ALLOW))
 
     /** ثبت اینکه این عبارت برای این قانون اشتباه بلاک شده؛ دفعات بعد همان عبارت بلاک نمی‌شود. */
     fun addLearnedAllow(context: Context, ruleId: String, evidence: String) {
@@ -318,7 +330,7 @@ object PrefsManager {
 
     /** قدم‌های اختیاری که کاربر رد کرده (تصمیم او؛ با باز کردن دوباره‌ی قدم از فهرست پاک می‌شود). */
     fun getSkippedOnboardingSteps(context: Context): Set<String> =
-        HashSet(prefs(context).getStringSet(KEY_ONBOARDING_SKIPPED, emptySet()) ?: emptySet())
+        HashSet(safeStringSet(context, KEY_ONBOARDING_SKIPPED))
 
     fun addSkippedOnboardingStep(context: Context, stepId: String) {
         val set = getSkippedOnboardingSteps(context).toMutableSet()

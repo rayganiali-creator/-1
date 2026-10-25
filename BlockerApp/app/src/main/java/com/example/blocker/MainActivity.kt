@@ -271,6 +271,8 @@ class MainActivity : AppCompatActivity() {
         column.addView(UiKit.primaryButton(this, if (session != null) "مشاهده‌ی سشن" else "شروع سشن") {
             startActivity(Intent(this, SessionActivity::class.java))
         })
+
+        UiKit.versionLine(this)?.let { column.addView(it) }
     }
 
     private fun nextScheduleText(): String? {
