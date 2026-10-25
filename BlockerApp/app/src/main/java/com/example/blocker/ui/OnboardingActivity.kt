@@ -231,131 +231,100 @@ class OnboardingActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * بازطراحی: تمام مراحل و مجوزها در یک صفحه نمایش داده می‌شوند؛
+     * حتی مواردی که در نسخه‌ی اندروید فعلی لازم نیستند، مخفی نمی‌شوند.
+     */
     private fun renderInner() {
         column.removeAllViews()
         val signals = deviceSignals()
         val steps = OnboardingState.buildSteps(signals, verifiedStates())
-        val visible = OnboardingState.visibleSteps(steps)
-        val skipped = PrefsManager.getSkippedOnboardingSteps(this)
         val samsung = OnboardingState.isSamsung(signals)
 
-        column.addView(UiKit.title(this, if (repairMode) "تعمیر دسترسی‌ها" else "راه‌اندازی سد — قدم‌به‌قدم", 22f))
+        column.addView(UiKit.title(this, if (repairMode) "بررسی و تعمیر دسترسی‌ها" else "راه‌اندازی سد", 24f))
         column.addView(UiKit.body(this,
-            if (repairMode) {
-                "فقط قدم‌هایی که الان ناقص‌اند نشان داده می‌شوند؛ قدم‌های کامل دست نخورده‌اند."
-            } else {
-                "هر قدم را به ترتیب انجام بده. وضعیت هر قدم از خود سیستم خوانده می‌شود و " +
-                "با برگشت از تنظیمات تازه می‌شود؛ هیچ قدمی با «زدم رفت» کامل نمی‌شود."
-            }))
-        column.addView(UiKit.body(this, OnboardingState.progressText(steps), 13f))
+            "همه‌ی مراحل اینجا دیده می‌شوند. وضعیت هر مورد از تنظیمات واقعی گوشی خوانده می‌شود؛ برای هر مورد دکمه‌ی مستقل خودش را بزن."))
+        val doneCount = steps.count { it.status == StepStatus.DONE }
+        val applicableCount = steps.count { it.status != StepStatus.NOT_APPLICABLE }
+        column.addView(UiKit.body(this, "وضعیت کلی: $doneCount از $applicableCount مورد فعال یا تکمیل شده", 14f))
 
-        // انتخاب قدم جاری (منطق خالص در OnboardingState): فوکوس اقدام لازم،
-        // وگرنه اولین اقدام لازمِ ردنشده؛ اگر همه‌ی باقی‌مانده‌ها رد شده‌اند،
-        // current برابر null می‌شود و صفحه‌ی پایان نشان داده می‌شود (نه اینکه
-        // قدم ردشده دوباره به‌عنوان قدم جاری برگردد — باگ نسخه‌ی قبل).
-        val skippedIds = skipped.mapNotNull { runCatching { StepId.valueOf(it) }.getOrNull() }.toSet()
-        val focusedStep = focusId?.let { id -> visible.firstOrNull { it.id == id } }
-        val current = OnboardingState.selectCurrent(visible, skippedIds, focusId)
-
-        // نمای قدم کامل: وقتی کاربر روی ردیف کامل‌شده در فهرست می‌زند یا با
-        // «بازگشت» به قدم کامل برمی‌گردد، کارت آن قدم با وضعیت کامل نشان داده
-        // می‌شود (قبلاً این کار هیچ تغییری نشان نمی‌داد و «بازگشت» بی‌اثر به نظر می‌رسید).
-        if (focusedStep != null && focusedStep.status == StepStatus.DONE) {
+        steps.forEachIndexed { index, step ->
+            val statusText = when (step.status) {
+                StepStatus.DONE -> "فعال است ✓"
+                StepStatus.ACTION_REQUIRED -> "نیاز به اقدام"
+                StepStatus.NOT_APPLICABLE -> "در نسخه‌ی اندروید شما لازم نیست"
+            }
+            val statusColor = when (step.status) {
+                StepStatus.DONE -> 0xFF7CFFD9.toInt()
+                StepStatus.ACTION_REQUIRED -> 0xFFFFC66D.toInt()
+                StepStatus.NOT_APPLICABLE -> ThemePalette.resolve(this).onSurfaceVariant
+            }
             column.addView(UiKit.card(this) { c ->
-                c.addView(UiKit.title(this, "${focusedStep.titleFa} ✓", 18f))
-                c.addView(UiKit.body(this, whyText(focusedStep.id)))
-                c.addView(UiKit.body(this, "وضعیت: فعال ✓"))
-                c.addView(UiKit.primaryButton(this, "بازگشت به قدم جاری") {
-                    focusId = null
-                    showHelp = false
-                    render()
-                })
+                c.addView(UiKit.title(this, "${index + 1}. ${step.titleFa}", 18f))
+                c.addView(UiKit.body(this, statusText, 14f).apply { setTextColor(statusColor) })
+                c.addView(UiKit.body(this, whyText(step.id), 14f))
+                if (step.status != StepStatus.NOT_APPLICABLE) {
+                    c.addView(UiKit.body(this, "مراحل انجام:", 13f).apply {
+                        setTextColor(ThemePalette.resolve(this@OnboardingActivity).onSurface)
+                    })
+                    c.addView(UiKit.body(this, seeText(step.id, samsung), 13f))
+                } else {
+                    val details = when (step.id) {
+                        StepId.RESTRICTED_SETTINGS -> "این قفل معمولاً فقط در اندروید ۱۳ به بالا و نصب خارج از فروشگاه مطرح است. اگر دکمه‌ی سرویس دسترسی خاکستری است، اطلاعات برنامه را باز کن و منوی سه‌نقطه را بررسی کن."
+                        StepId.NOTIFICATIONS -> "مجوز جداگانه‌ی نوتیفیکیشن در اندرویدهای قدیمی‌تر وجود ندارد."
+                        StepId.EXACT_ALARMS -> "نسخه‌ی اندروید شما مجوز جداگانه‌ی آلارم دقیق را لازم ندارد."
+                        else -> "این مورد در وضعیت فعلی به اقدام جداگانه نیاز ندارد."
+                    }
+                    c.addView(UiKit.body(this, details, 13f))
+                }
+
+                when (step.id) {
+                    StepId.RESTRICTED_SETTINGS -> c.addView(UiKit.primaryButton(this,
+                        if (step.status == StepStatus.ACTION_REQUIRED) "باز کردن اطلاعات برنامه" else "بررسی تنظیمات محدودشده") {
+                        returningFromRestrictedSettings = true
+                        runAction(StepId.RESTRICTED_SETTINGS)
+                    })
+                    StepId.ACCESSIBILITY -> c.addView(UiKit.primaryButton(this,
+                        if (step.status == StepStatus.DONE) "باز کردن تنظیمات دسترسی" else "فعال‌کردن سرویس دسترسی") {
+                        runAction(StepId.ACCESSIBILITY)
+                    })
+                    StepId.NOTIFICATIONS -> if (Build.VERSION.SDK_INT >= 33 && step.status != StepStatus.DONE) {
+                        c.addView(UiKit.primaryButton(this, "اجازه‌ی نوتیفیکیشن") { runAction(StepId.NOTIFICATIONS) })
+                    }
+                    StepId.BATTERY -> if (step.status != StepStatus.DONE) {
+                        c.addView(UiKit.primaryButton(this, "تنظیم دسترسی باتری") { runAction(StepId.BATTERY) })
+                    }
+                    StepId.EXACT_ALARMS -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && step.status != StepStatus.DONE) {
+                        c.addView(UiKit.primaryButton(this, "اجازه‌ی آلارم دقیق") { runAction(StepId.EXACT_ALARMS) })
+                    }
+                    StepId.CONFIG -> c.addView(UiKit.primaryButton(this,
+                        if (step.status == StepStatus.DONE) "ویرایش قوانین" else "انتخاب برنامه‌ها و قوانین") {
+                        runAction(StepId.CONFIG)
+                    })
+                }
+
+                if (step.status == StepStatus.ACTION_REQUIRED) {
+                    c.addView(UiKit.outlinedButton(this, "راهنمای مشکل این بخش") {
+                        val details = OnboardingState.troubleshooting(step.id, samsung)
+                            .joinToString("\n\n") { (issue, action) -> "• $issue\n$action" }
+                        android.app.AlertDialog.Builder(this@OnboardingActivity)
+                            .setTitle("عیب‌یابی: ${step.titleFa}")
+                            .setMessage(details)
+                            .setPositiveButton("متوجه شدم", null)
+                            .show()
+                    })
+                }
             })
-            renderSummary(visible, skipped, null)
-            return
         }
 
-        if (current == null) {
-            // همه کامل — صفحه‌ی پایان (صادقانه: بر اساس وضعیت واقعی، نه دکمه).
-            column.addView(UiKit.card(this) { c ->
-                c.addView(UiKit.title(this, "همه‌چیز آماده است ✓", 18f))
-                c.addView(UiKit.body(this, "همه‌ی دسترسی‌های لازم فعال‌اند. اگر بعداً چیزی لغو شد، از همین صفحه یا داشبورد «تعمیر دسترسی‌ها» را باز کن."))
-            })
-            column.addView(UiKit.primaryButton(this, if (repairMode) "بازگشت به برنامه" else "ورود به برنامه") {
+        column.addView(UiKit.primaryButton(this, "بررسی دوباره‌ی همه‌ی مجوزها") { render() })
+        if (steps.none { it.required && it.status == StepStatus.ACTION_REQUIRED }) {
+            column.addView(UiKit.primaryButton(this, if (repairMode) "بازگشت به برنامه" else "اتمام راه‌اندازی") {
                 if (!repairMode) PrefsManager.setOnboardingDone(this, true)
                 finish()
             })
-            renderSummary(visible, skipped, null)
-            return
         }
-
-        val position = visible.indexOf(current) + 1
-        column.addView(UiKit.card(this) { c ->
-            c.addView(UiKit.title(this, "قدم $position از ${visible.size}: ${current.titleFa}", 18f))
-            c.addView(UiKit.body(this, whyText(current.id)))
-            c.addView(UiKit.body(this, "چه چیزی باید ببینی: " + seeText(current.id, samsung), 13f))
-            if (current.id == StepId.ACCESSIBILITY && OnboardingState.restrictedSettingsLikely(signals)) {
-                c.addView(UiKit.body(this,
-                    "اگر دکمه‌ی روشن‌کردن «سد» خاکستری یا غیرفعال است: از فهرست پایین، قدم «باز کردن قفل تنظیمات محدودشده» را باز کن؛ سه‌نقطه‌ی صفحه‌ی اطلاعات برنامه را بزن و Allow restricted settings و سپس Allow را انتخاب کن. بعد به این قدم برگرد.",
-                    13f))
-            }
-            if (current.id == StepId.RESTRICTED_SETTINGS || current.id == StepId.ACCESSIBILITY) {
-                // راهنمای شماتیک — صراحتاً نه اسکرین‌شات: تصویر واقعی گوشی تو ممکن است کمی فرق کند.
-                c.addView(UiKit.body(this,
-                    "راهنمای شماتیک (تصویر واقعی تنظیمات گوشی تو ممکن است در جزئیات فرق کند):", 12f))
-                c.addView(UiKit.body(this,
-                    if (current.id == StepId.RESTRICTED_SETTINGS) {
-                        "اطلاعات برنامه‌ی سد\n↓\nسه‌نقطه (بالا)\n↓\nAllow restricted settings\n↓\nAllow"
-                    } else if (samsung) {
-                        "تنظیمات\n↓\nAccessibility\n↓\nInstalled apps\n↓\nسد\n↓\nروشن"
-                    } else {
-                        "تنظیمات\n↓\nAccessibility\n↓\nDownloaded apps\n↓\nسد\n↓\nروشن"
-                    }, 13f))
-                if (current.id == StepId.ACCESSIBILITY && !samsung) {
-                    c.addView(UiKit.body(this, "در سامسونگ، بخش «Installed apps» است؛ در بقیه، «Downloaded apps» یا «نصب‌شده‌ها».", 12f))
-                }
-            }
-            c.addView(UiKit.primaryButton(this, actionLabel(current.id)) {
-                showHelp = false
-                runAction(current.id)
-            })
-            // عیب‌یابی همان قدم — یک مشکل، یک اقدام.
-            c.addView(UiKit.outlinedButton(this, if (showHelp) "بستن راهنمای مشکلات" else "این گزینه را پیدا نمی‌کنم") {
-                showHelp = !showHelp
-                render()
-            })
-            if (showHelp) {
-                OnboardingState.troubleshooting(current.id, samsung).forEach { (issue, action) ->
-                    c.addView(UiKit.body(this, "• $issue: $action", 13f))
-                }
-            }
-            // بازگشت: به قدم قبلیِ فهرست می‌رود، بدون پاک کردن وضعیت (وضعیت‌ها زنده‌اند).
-            val currentIdx = visible.indexOf(current)
-            if (currentIdx > 0) {
-                c.addView(UiKit.outlinedButton(this, "بازگشت به قدم قبلی") {
-                    focusId = visible[currentIdx - 1].id
-                    showHelp = false
-                    render()
-                })
-            }
-            // رد کردن فقط برای قدم‌های اختیاری.
-            if (!current.required) {
-                c.addView(UiKit.outlinedButton(this, "رد کردن این قدم (اختیاری)") {
-                    PrefsManager.addSkippedOnboardingStep(this, current.id.name)
-                    focusId = null
-                    showHelp = false
-                    render()
-                })
-            }
-            c.addView(UiKit.body(this, "هنوز فعال نشده؟ دکمه‌ی «بررسی دوباره» را بزن یا از تنظیمات برگرد تا وضعیت تازه خوانده شود.", 12f))
-            c.addView(UiKit.outlinedButton(this, "بررسی دوباره") { render() })
-        })
-
-        renderSummary(visible, skipped, current.id)
-
-        if (!repairMode) {
-            column.addView(UiKit.outlinedButton(this, "بعداً انجام می‌دهم") { finish() })
-        }
+        if (!repairMode) column.addView(UiKit.outlinedButton(this, "فعلاً بعداً") { finish() })
     }
 
     /** فهرست خلاصه با وضعیت دقیق هر قدم؛ زدن روی هر ردیف، آن قدم را باز می‌کند. */
