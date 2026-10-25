@@ -46,9 +46,9 @@ object ThemePalette {
     )
 
     fun resolve(context: Context): Colors {
-        // طرح تأییدشده فقط تیره است؛ تم روشن/کرمی از برنامه حذف شده است.
-        // «رنگ پس‌زمینه» در تنظیمات حالا رنگ صفحه‌ی بلاک است، نه تم برنامه.
-        return dark()
+        // انتخاب تنظیمات روی پس‌زمینه‌ی همه‌ی صفحات اثر می‌گذارد؛ سطوح کارت‌ها
+        // و رنگ متن ثابت می‌مانند تا کنتراست و خوانایی حفظ شود.
+        return dark().copy(background = PrefsManager.getBlockedBg(context))
     }
 
     private fun light() = Colors(0xFFF4F6F5.toInt(), 0xFFFFFFFF.toInt(), 0xFF14181D.toInt(), 0xFF5A6363.toInt(), 0xFFE2E8E6.toInt(), 0xFFEEF2F0.toInt(), 0xFF0E9F76.toInt(), 0xFFD9F5EA.toInt(), 0xFFFFFFFF.toInt())
