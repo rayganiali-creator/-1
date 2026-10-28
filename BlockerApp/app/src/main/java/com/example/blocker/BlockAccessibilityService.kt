@@ -152,9 +152,15 @@ class BlockAccessibilityService : AccessibilityService() {
             val targetPackage = activeWindowPackage ?: packageName
             if (checkSelfProtection(targetPackage)) return
             val config = effectiveConfig()
-            val keywordTriggerAllowed =
-                (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED && targetPackage in LIVE_SEARCH_PACKAGES) ||
-                (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && isSearchActionEvent(event))
+            // حالت پیش‌فرض: فقط با کلیک واقعی روی جستجو/ارسال بررسی کن؛
+            // نوشتن متن یا دیده‌شدن اتفاقی کلمه در صفحه، به‌تنهایی تریگر نیست.
+            val searchSubmitted =
+                event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && isSearchActionEvent(event)
+            val pageContentTrigger =
+                PrefsManager.isPageContentBlockingEnabled(this) &&
+                    (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
+                     event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+            val keywordTriggerAllowed = searchSubmitted || pageContentTrigger
             val candidate = findCandidate(targetPackage, config, keywordTriggerAllowed)
 
             if (candidate == null) {
@@ -343,15 +349,22 @@ class BlockAccessibilityService : AccessibilityService() {
                     }
                 }
             }
-            // ۳) بلاک کلمه‌کلیدی با خط لوله‌ی تصمیم روی دستگاه (پیش‌فیلتر قطعی +
-            // طبقه‌بندی معنایی + سیاست آستانه + کش + بازگشت امن) و اجازه‌های
-            // آموخته‌شده — فقط روی متنِ ورودی (جستجو/نوار آدرس) و متن محتوای
-            // غیرلیستی؛ متن داخل لیست‌ها (تاریخچه، پیشنهادها، فید) به‌تنهایی بلاک نمی‌کند.
+            // ۳) بلاک کلمه‌کلیدی با موتور تصمیم روی دستگاه.
+            // پیش‌فرض فقط پس از کلیک واقعی جستجو/ارسال، متن فیلد ورودی بررسی می‌شود.
+            // بررسی متن محتوای صفحه انتخابی است و از لیست‌ها/پیشنهادها صرف‌نظر می‌کند.
             if (config.rules.isNotEmpty() && keywordTriggerAllowed) {
                 val inputText = StringBuilder()
                 val contentText = StringBuilder()
                 collectScopedText(root, inputText, contentText, inList = false, maxNodes = 400)
-                val scopedText = inputText.toString()
+                // جستجو/آدرس همیشه از فیلد ورودی می‌آید؛ محتوای صفحه فقط
+                // وقتی کاربر حالت اختیاری آن را روشن کرده باشد به تصمیم اضافه می‌شود.
+                val scopedText = buildString {
+                    append(inputText)
+                    if (PrefsManager.isPageContentBlockingEnabled(this@BlockAccessibilityService)) {
+                        append(' ')
+                        append(contentText)
+                    }
+                }
                 val decision = AiEngine.classify(
                     config.rules, scopedText, packageName,
                     PrefsManager.getLearnedAllow(this),
@@ -400,6 +413,7 @@ class BlockAccessibilityService : AccessibilityService() {
         val isInput = KeywordScope.isInputNode(cls, node.isEditable)
         val target = when {
             isInput -> inputSb
+            !nowInList && PrefsManager.isPageContentBlockingEnabled(this) -> contentSb
             else -> null
         }
         if (target != null) {
