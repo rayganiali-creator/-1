@@ -53,6 +53,7 @@ object PrefsManager {
     private const val KEY_AI_INTENTION_JSON = "ai_intention_json"
     private const val KEY_THEME = "theme"
     private const val KEY_BLOCKED_BG = "blocked_bg"
+    private const val KEY_PAGE_CONTENT_BLOCKING = "page_content_blocking"
 
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -283,6 +284,14 @@ object PrefsManager {
     }
 
     // ---------- تنظیمات ----------
+    /** پیش‌فرض خاموش: کلمات داخل بدنه‌ی صفحه بلاک نمی‌شوند، فقط جستجوی ارسال‌شده بررسی می‌شود. */
+    fun isPageContentBlockingEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_PAGE_CONTENT_BLOCKING, false)
+
+    fun setPageContentBlockingEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_PAGE_CONTENT_BLOCKING, enabled).apply()
+    }
+
     /** تم پس‌زمینه: system (خودکار)، light، dark، mint، blue، cream. */
     fun getTheme(context: Context): String =
         prefs(context).getString(KEY_THEME, "system") ?: "system"
