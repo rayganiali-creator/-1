@@ -344,13 +344,14 @@ object UiKit {
         return AppCompatButton(context).apply {
             this.text = text
             background = GradientDrawable().apply {
-                cornerRadius = dp(context, 28).toFloat()
+                cornerRadius = dp(context, 30).toFloat()
                 setColor(palette.accent)
             }
             setTextColor(palette.onAccent)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setTypeface(typeface, Typeface.BOLD)
-            minimumHeight = dp(context, 56)
+            minimumHeight = dp(context, 58)
+            setPadding(dp(context, 22), dp(context, 8), dp(context, 22), dp(context, 8))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { topMargin = dp(context, 8) }
             setOnClickListener { onClick() }
@@ -362,13 +363,14 @@ object UiKit {
         return AppCompatButton(context).apply {
             this.text = text
             background = GradientDrawable().apply {
-                cornerRadius = dp(context, 24).toFloat()
+                cornerRadius = dp(context, 28).toFloat()
                 setColor(palette.accentSoft)
             }
             setTextColor(palette.accent)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setTypeface(typeface, Typeface.BOLD)
-            minimumHeight = dp(context, 52)
+            minimumHeight = dp(context, 54)
+            setPadding(dp(context, 20), dp(context, 8), dp(context, 20), dp(context, 8))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { topMargin = dp(context, 8) }
             setOnClickListener { onClick() }
