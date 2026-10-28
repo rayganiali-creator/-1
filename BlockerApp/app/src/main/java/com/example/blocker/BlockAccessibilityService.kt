@@ -154,13 +154,16 @@ class BlockAccessibilityService : AccessibilityService() {
             val config = effectiveConfig()
             // حالت پیش‌فرض: فقط با کلیک واقعی روی جستجو/ارسال بررسی کن؛
             // نوشتن متن یا دیده‌شدن اتفاقی کلمه در صفحه، به‌تنهایی تریگر نیست.
+            val liveSearchInputChanged =
+                event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED &&
+                    targetPackage in LIVE_SEARCH_PACKAGES
             val searchSubmitted =
                 event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && isSearchActionEvent(event)
             val pageContentTrigger =
                 PrefsManager.isPageContentBlockingEnabled(this) &&
                     (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
                      event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
-            val keywordTriggerAllowed = searchSubmitted || pageContentTrigger
+            val keywordTriggerAllowed = liveSearchInputChanged || searchSubmitted || pageContentTrigger
             val candidate = findCandidate(targetPackage, config, keywordTriggerAllowed)
 
             if (candidate == null) {
