@@ -436,6 +436,9 @@ class BlockAccessibilityService : AccessibilityService() {
         val source = try { event.source } catch (_: Exception) { null }
         if (source != null) {
             try {
+                // کلیک روی خودِ فیلد جستجو، انتخاب پیشنهاد یا فوکوس ورودی
+                // «ارسال جستجو» محسوب نمی‌شود.
+                if (source.isEditable) return false
                 source.text?.toString()?.let { parts += it }
                 source.contentDescription?.toString()?.let { parts += it }
                 source.viewIdResourceName?.let { parts += it }
