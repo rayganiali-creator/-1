@@ -109,12 +109,13 @@ class BlockAccessibilityService : AccessibilityService() {
     private fun effectiveConfig(): EffectiveConfig {
         val session = SessionManager.activeSession(this)
         return when {
-            // بدون سشن، هیچ بلاک محتوایی نیست: صرفِ اضافه کردن قانون بلاک نمی‌کند.
+            // قوانین ذخیره‌شده باید بیرون از سشن هم کار کنند؛ سشن Strict فقط
+            // snapshot خودش را اعمال می‌کند. بدون سشن، تنظیمات جاری استفاده می‌شود.
             session == null -> EffectiveConfig(
-                apps = emptySet(),
-                websites = emptySet(),
-                rules = emptyList(),
-                delaySeconds = 0,
+                apps = PrefsManager.getBlockedApps(this),
+                websites = PrefsManager.getBlockedWebsites(this),
+                rules = PrefsManager.getRules(this).filter { it.enabled },
+                delaySeconds = PrefsManager.getDelaySeconds(this),
                 strict = false
             )
             session.mode == SessionMode.STRICT -> EffectiveConfig(
@@ -338,10 +339,7 @@ class BlockAccessibilityService : AccessibilityService() {
         // زمان‌دار)، متن پنجره‌ی خودمان هرگز ارزیابی نمی‌شود.
         val activeWindowPackage = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
         if (OwnAppGuard.shouldSkip(null, activeWindowPackage, this.packageName)) return null
-        // بلاک محتوا فقط وسط سشن: بدون سشنِ فعال، هیچ اپ/سایت/کلمه‌ای بلاک نمی‌شود.
-        // (این گارد، بازبینیِ بلاکِ معلقِ زمان‌دار را هم پوشش می‌دهد: اگر سشن وسط
-        // دیلی تمام شود، بلاک شلیک نمی‌شود.)
-        if (SessionManager.activeSession(this) == null) return null
+        // تنظیمات جاری خارج از سشن هم معتبرند؛ در سشن Strict، config از snapshot می‌آید.
         // ۱) بلاک برنامه
         if (config.apps.contains(packageName)) {
             return Candidate("app:$packageName", "app:$packageName", "این برنامه توسط شما مسدود شده است.", packageName, config.delaySeconds)
