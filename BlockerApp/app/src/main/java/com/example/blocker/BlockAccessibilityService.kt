@@ -149,14 +149,21 @@ class BlockAccessibilityService : AccessibilityService() {
             val activeWindowPackage = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
             if (OwnAppGuard.shouldSkip(packageName, activeWindowPackage, this.packageName)) return
 
-            val targetPackage = activeWindowPackage ?: packageName
+            // فعال‌بودن کیبورد می‌تواند activeWindowPackage را به Gboard/Samsung Keyboard
+            // تغییر دهد؛ برای تشخیص اپ جستجو از پکیج رخداد استفاده کن، نه پنجره‌ی کیبورد.
+            val targetPackage = when {
+                packageName in LIVE_SEARCH_PACKAGES -> packageName
+                activeWindowPackage != null && activeWindowPackage != "com.google.android.inputmethod.latin" &&
+                    activeWindowPackage != "com.samsung.android.honeyboard" -> activeWindowPackage
+                else -> packageName
+            }
             if (checkSelfProtection(targetPackage)) return
             val config = effectiveConfig()
-            // حالت پیش‌فرض: فقط با کلیک واقعی روی جستجو/ارسال بررسی کن؛
-            // نوشتن متن یا دیده‌شدن اتفاقی کلمه در صفحه، به‌تنهایی تریگر نیست.
+            // در تلگرام/اینستاگرام متن فیلد جستجو هنگام تایپ هم بررسی می‌شود؛
+            // این fallback برای دستگاه‌هایی است که دکمه‌ی Search رخداد قابل‌تشخیص نمی‌فرستد.
             val liveSearchInputChanged =
                 event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED &&
-                    targetPackage in LIVE_SEARCH_PACKAGES
+                    packageName in LIVE_SEARCH_PACKAGES
             val searchSubmitted =
                 event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && isSearchActionEvent(event)
             val pageContentTrigger =
@@ -206,7 +213,9 @@ class BlockAccessibilityService : AccessibilityService() {
     /** لحظه‌ی اجرا: دوباره بررسی می‌کنیم که تریگر هنوز سر جایش هست یا نه. */
     private fun revalidateAndFire(original: Candidate, config: EffectiveConfig) {
         if (!pendingBlocks.consumeIfDue(System.currentTimeMillis(), original.signature)) return
-        val fresh = try { findCandidate(original.packageName, config) } catch (e: Exception) { null }
+        // بازبینی باید همان مجوز تریگر اولیه را حفظ کند؛ در غیر این صورت
+        // یک جستجوی معتبر بعد از تأخیر دوباره به‌اشتباه رد می‌شود.
+        val fresh = try { findCandidate(original.packageName, config, keywordTriggerAllowed = true) } catch (e: Exception) { null }
         if (fresh != null && fresh.signature == original.signature) {
             fireBlock(fresh)
         }
