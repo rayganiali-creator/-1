@@ -185,6 +185,27 @@ class AiSettingsActivity : AppCompatActivity() {
             })
         })
 
+        // دامنه‌ی بررسی کلمات: جستجو پیش‌فرض؛ بررسی محتوای صفحه اختیاری.
+        column.addView(UiKit.card(this) { c ->
+            c.addView(UiKit.title(this, "محدوده‌ی بررسی کلمات", 17f))
+            c.addView(UiKit.body(this,
+                "پیش‌فرض فقط بعد از زدن دکمه‌ی جستجو/ارسال، متن ورودی بررسی می‌شود. " +
+                "با روشن‌کردن گزینه‌ی زیر، متن قابل‌مشاهده‌ی بدنه‌ی صفحه هم بررسی می‌شود؛ " +
+                "ممکن است در این حالت کلمات عادی داخل پست‌ها نیز باعث بلاک شوند.", 13f))
+            val contentSwitch = android.widget.Switch(this).apply {
+                text = "بررسی محتوای صفحه (اختیاری)"
+                isChecked = PrefsManager.isPageContentBlockingEnabled(this@AiSettingsActivity)
+                setTextColor(ThemePalette.resolve(this@AiSettingsActivity).onSurface)
+                setOnCheckedChangeListener { _, checked ->
+                    PrefsManager.setPageContentBlockingEnabled(this@AiSettingsActivity, checked)
+                    Toast.makeText(this@AiSettingsActivity,
+                        if (checked) "بررسی محتوای صفحه روشن شد" else "حالت جستجو فعال شد",
+                        Toast.LENGTH_SHORT).show()
+                }
+            }
+            c.addView(contentSwitch)
+        })
+
         // حریم خصوصی.
         column.addView(UiKit.card(this) { c ->
             c.addView(UiKit.title(this, "حریم خصوصی", 17f))
