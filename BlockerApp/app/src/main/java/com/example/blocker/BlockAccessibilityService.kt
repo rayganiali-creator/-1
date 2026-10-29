@@ -438,7 +438,7 @@ class BlockAccessibilityService : AccessibilityService() {
                         decision.rule.effectiveDelaySeconds(config.delaySeconds),
                         decision.rule.id,
                         decision.evidence,
-                        keywordInputText = keywordInputText
+                        queryText = keywordInputText
                     )
                 }
             }
