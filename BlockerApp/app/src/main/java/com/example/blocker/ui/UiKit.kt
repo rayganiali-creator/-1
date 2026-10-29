@@ -47,7 +47,11 @@ object ThemePalette {
         // پس‌زمینه‌ی انتخابی کاربر حفظ می‌شود، اما کارت‌ها و دکمه‌ها از یک
         // پالت هماهنگِ خنثی استفاده می‌کنند تا رنگ‌های نامرتبط روی هم نیفتند.
         val background = PrefsManager.getBlockedBg(context)
-        val darkMode = android.graphics.Color.luminance(background) < 0.42f
+        // محاسبه‌ی روشنایی دستی برای سازگاری با Android 7 (minSdk 24).
+        val red = android.graphics.Color.red(background) / 255f
+        val green = android.graphics.Color.green(background) / 255f
+        val blue = android.graphics.Color.blue(background) / 255f
+        val darkMode = (0.2126f * red + 0.7152f * green + 0.0722f * blue) < 0.42f
         return if (darkMode) {
             Colors(
                 background = background,
