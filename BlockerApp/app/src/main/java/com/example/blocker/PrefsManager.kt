@@ -332,8 +332,13 @@ object PrefsManager {
     }
 
     /** رنگ پس‌زمینه‌ی صفحه‌ی بلاک (پیش‌فرض: آبی نفتی)؛ از تنظیمات انتخاب می‌شود. */
-    fun getBlockedBg(context: Context): Int =
-        prefs(context).getInt(KEY_BLOCKED_BG, 0xFF102A43.toInt())
+    fun getBlockedBg(context: Context): Int {
+        val preferredDefault = 0xFFF4F3ED.toInt()
+        val saved = prefs(context).getInt(KEY_BLOCKED_BG, preferredDefault)
+        // مهاجرت رنگ پیش‌فرض قدیمیِ سرمه‌ای به زمینه‌ی گرم و روشن؛ انتخاب‌های
+        // سفارشی کاربر دست‌نخورده می‌مانند.
+        return if (saved == 0xFF102A43.toInt()) preferredDefault else saved
+    }
 
     fun setBlockedBg(context: Context, color: Int) {
         prefs(context).edit().putInt(KEY_BLOCKED_BG, color).apply()
