@@ -497,6 +497,7 @@ class BlockAccessibilityService : AccessibilityService() {
             // بعضی نسخه‌های تلگرام/اینستاگرام شناسه‌ی قابل‌خواندن نمی‌دهند؛
             // فقط وقتی خودِ فیلد ورودی صریحاً در صفحه‌ی جستجوست، hint آن بررسی شود.
             return packageName in LIVE_SEARCH_PACKAGES &&
+                android.os.Build.VERSION.SDK_INT >= 26 &&
                 (source.hintText?.toString()?.isNotBlank() == true)
         } finally {
             source.recycle()
