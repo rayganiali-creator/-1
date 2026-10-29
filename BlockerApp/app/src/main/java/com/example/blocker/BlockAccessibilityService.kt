@@ -160,18 +160,18 @@ class BlockAccessibilityService : AccessibilityService() {
             }
             if (checkSelfProtection(targetPackage)) return
             val config = effectiveConfig()
-            // در تلگرام/اینستاگرام متن فیلد جستجو هنگام تایپ هم بررسی می‌شود؛
-            // این fallback برای دستگاه‌هایی است که دکمه‌ی Search رخداد قابل‌تشخیص نمی‌فرستد.
-            val liveSearchInputChanged =
+            // مهم: به محض تایپ در فیلدی که به‌عنوان جستجو/نوار آدرس شناسایی می‌شود،
+            // متن ورودی بررسی می‌شود؛ منتظر کلیک Search نمی‌مانیم. متن عادی صفحه بررسی نمی‌شود.
+            val searchInputChanged =
                 event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED &&
-                    packageName in LIVE_SEARCH_PACKAGES
+                    isSearchInputEvent(event, packageName)
             val searchSubmitted =
                 event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && isSearchActionEvent(event)
             val pageContentTrigger =
                 PrefsManager.isPageContentBlockingEnabled(this) &&
                     (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
                      event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
-            val keywordTriggerAllowed = liveSearchInputChanged || searchSubmitted || pageContentTrigger
+            val keywordTriggerAllowed = searchInputChanged || searchSubmitted || pageContentTrigger
             val candidate = findCandidate(targetPackage, config, keywordTriggerAllowed)
 
             if (candidate == null) {
@@ -216,6 +216,8 @@ class BlockAccessibilityService : AccessibilityService() {
         if (!pendingBlocks.consumeIfDue(System.currentTimeMillis(), original.signature)) return
         // بازبینی باید همان مجوز تریگر اولیه را حفظ کند؛ در غیر این صورت
         // یک جستجوی معتبر بعد از تأخیر دوباره به‌اشتباه رد می‌شود.
+        // تأخیر فقط باید همان کلمه‌ی ورودی را بازبینی کند؛ این بازبینی نباید
+        // به‌تنهایی یک رخداد جدید/غیرجستجویی را به تریگر بلاک تبدیل کند.
         val fresh = try { findCandidate(original.packageName, config, keywordTriggerAllowed = true) } catch (e: Exception) { null }
         if (fresh != null && fresh.signature == original.signature) {
             fireBlock(fresh)
@@ -344,7 +346,7 @@ class BlockAccessibilityService : AccessibilityService() {
         if (config.apps.contains(packageName)) {
             return Candidate("app:$packageName", "app:$packageName", "این برنامه توسط شما مسدود شده است.", packageName, config.delaySeconds)
         }
-        val root = rootInActiveWindow ?: return null
+        val root = rootForPackage(packageName) ?: return null
         try {
             // ۲) بلاک دامنه از نوار آدرس مرورگر
             if (config.websites.isNotEmpty()) {
@@ -437,6 +439,59 @@ class BlockAccessibilityService : AccessibilityService() {
         }
     }
 
+
+    /**
+     * متن فقط وقتی کاندید جستجو است که رویداد از فیلد قابل‌ویرایش بیاید و
+     * شناسه/راهنما/توضیح آن نشانه‌ی جستجو یا نوار آدرس داشته باشد. این کار از
+     * بلاک شدن متن پیام‌ها و فیلدهای عادی جلوگیری می‌کند، درحالی‌که برای اپ‌هایی
+     * که فیلد جستجوی استاندارد دارند به کیبورد خاصی وابسته نیست.
+     */
+    private fun isSearchInputEvent(event: AccessibilityEvent, packageName: String): Boolean {
+        val source = try { event.source } catch (_: Exception) { null } ?: return false
+        try {
+            if (!source.isEditable && source.className?.toString()?.substringAfterLast('.') != "EditText") {
+                return false
+            }
+            val markers = listOf(
+                "search", "query", "url", "address", "omnibox", "search_field",
+                "search_edit_text", "جستجو", "جست‌وجو", "بگرد", "نشانی", "آدرس"
+            )
+            var node: AccessibilityNodeInfo? = source
+            var depth = 0
+            while (node != null && depth < 4) {
+                val evidence = listOfNotNull(
+                    node.viewIdResourceName,
+                    node.contentDescription?.toString(),
+                    if (android.os.Build.VERSION.SDK_INT >= 26) node.hintText?.toString() else null
+                ).joinToString(" ").lowercase()
+                if (markers.any { evidence.contains(it) }) return true
+                val parent = try { node.parent } catch (_: Exception) { null }
+                if (node !== source) node.recycle()
+                node = parent
+                depth++
+            }
+            if (node != null && node !== source) node.recycle()
+            // بعضی نسخه‌های تلگرام/اینستاگرام شناسه‌ی قابل‌خواندن نمی‌دهند؛
+            // فقط وقتی خودِ فیلد ورودی صریحاً در صفحه‌ی جستجوست، hint آن بررسی شود.
+            return packageName in LIVE_SEARCH_PACKAGES &&
+                (source.hintText?.toString()?.isNotBlank() == true)
+        } finally {
+            source.recycle()
+        }
+    }
+
+    /** وقتی کیبورد باز است، root فعال ممکن است متعلق به IME باشد؛ ریشه‌ی خود اپ را پیدا کن. */
+    private fun rootForPackage(packageName: String): AccessibilityNodeInfo? {
+        try {
+            for (window in windows) {
+                val root = try { window.root } catch (_: Exception) { null } ?: continue
+                if (root.packageName?.toString() == packageName) return root
+                root.recycle()
+            }
+        } catch (_: Exception) { }
+        val active = try { rootInActiveWindow } catch (_: Exception) { null }
+        return if (active?.packageName?.toString() == packageName) active else null
+    }
 
     /** تشخیص محافظه‌کارانه‌ی عمل جستجو/ارسال در فیلد ورودی قابل‌دسترسی. */
     private fun isSearchActionEvent(event: AccessibilityEvent): Boolean {
