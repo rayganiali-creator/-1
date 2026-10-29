@@ -193,7 +193,7 @@ class RulesActivity : AppCompatActivity() {
                         PrefsManager.setBlockedWebsiteEnabled(this@RulesActivity, domain, checked)
                         statusLabel.text = if (checked) "مسدود است" else "غیرفعال است"
                     } else {
-                        websiteSwitch.isChecked = !checked
+                        render()
                     }
                 }
             })
