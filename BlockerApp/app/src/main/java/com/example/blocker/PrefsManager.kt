@@ -32,6 +32,7 @@ object PrefsManager {
     private const val PREFS_NAME = "blocker_prefs"
     private const val KEY_BLOCKED_APPS = "blocked_apps"
     private const val KEY_BLOCKED_WEBSITES = "blocked_websites"
+    private const val KEY_DISABLED_WEBSITES = "disabled_websites_v1"
     private const val KEY_BLOCKED_KEYWORDS = "blocked_keywords"
     private const val KEY_RULES_JSON = "rules_json_v2"
     private const val KEY_PROFILES_JSON = "profiles_json_v2"
@@ -85,19 +86,49 @@ object PrefsManager {
     }
 
     // ---------- سایت‌های مسدود شده ----------
+    /** فقط دامنه‌های فعال را برمی‌گرداند؛ این متد برای موتور مسدودسازی است. */
     fun getBlockedWebsites(context: Context): MutableSet<String> =
         LinkedHashSet(safeStringSet(context, KEY_BLOCKED_WEBSITES))
 
+    /** همه‌ی دامنه‌های ثبت‌شده، از جمله دامنه‌هایی که کاربر موقتاً خاموش کرده است. */
+    fun getAllBlockedWebsites(context: Context): MutableSet<String> {
+        val all = LinkedHashSet(safeStringSet(context, KEY_BLOCKED_WEBSITES))
+        all.addAll(safeStringSet(context, KEY_DISABLED_WEBSITES))
+        return all
+    }
+
+    fun setBlockedWebsiteEnabled(context: Context, domain: String, enabled: Boolean) {
+        val normalized = domain.trim().lowercase()
+        if (normalized.isBlank()) return
+        val active = getBlockedWebsites(context)
+        val disabled = LinkedHashSet(safeStringSet(context, KEY_DISABLED_WEBSITES))
+        if (enabled) {
+            active.add(normalized)
+            disabled.remove(normalized)
+        } else {
+            active.remove(normalized)
+            disabled.add(normalized)
+        }
+        prefs(context).edit()
+            .putStringSet(KEY_BLOCKED_WEBSITES, active)
+            .putStringSet(KEY_DISABLED_WEBSITES, disabled)
+            .apply()
+    }
+
     fun addBlockedWebsite(context: Context, domain: String) {
-        val set = getBlockedWebsites(context)
-        set.add(domain.trim().lowercase())
-        prefs(context).edit().putStringSet(KEY_BLOCKED_WEBSITES, set).apply()
+        setBlockedWebsiteEnabled(context, domain, true)
     }
 
     fun removeBlockedWebsite(context: Context, domain: String) {
-        val set = getBlockedWebsites(context)
-        set.remove(domain)
-        prefs(context).edit().putStringSet(KEY_BLOCKED_WEBSITES, set).apply()
+        val normalized = domain.trim().lowercase()
+        val active = getBlockedWebsites(context)
+        val disabled = LinkedHashSet(safeStringSet(context, KEY_DISABLED_WEBSITES))
+        active.remove(normalized)
+        disabled.remove(normalized)
+        prefs(context).edit()
+            .putStringSet(KEY_BLOCKED_WEBSITES, active)
+            .putStringSet(KEY_DISABLED_WEBSITES, disabled)
+            .apply()
     }
 
     // ---------- کلمات کلیدی: API قدیمی (سازگاری) ----------
