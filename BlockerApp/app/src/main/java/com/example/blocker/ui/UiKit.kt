@@ -23,9 +23,8 @@ import com.example.blocker.PrefsManager
 import com.example.blocker.R
 import com.google.android.material.card.MaterialCardView
 
-/** پالت رنگی برنامه بر اساس انتخاب کاربر برای رنگ پس‌زمینه (تنظیمات > رنگ پس‌زمینه).
- *  پالت هماهنگِ سبز مریم‌گلی و خنثی‌های گرم؛ سطوح کارت با روشنایی پس‌زمینه
- *  سازگار می‌شوند و لهجه‌ی سبز-نعنایی در هر دو حالت کنتراست خوانا دارد. */
+/** پالت رنگی برنامه با سطوح آبی-یخی و سبز-فیروزه‌ای، هماهنگ با کارت‌های رنگی.
+ *  روشنایی پس‌زمینه از انتخاب تم کاربر/سیستم پیروی می‌کند. */
 object ThemePalette {
     data class Colors(
         val background: Int,
@@ -55,32 +54,32 @@ object ThemePalette {
         return if (darkMode) {
             Colors(
                 background = background,
-                surface = 0xFF202A30.toInt(),
-                onSurface = 0xFFF5F7F3.toInt(),
-                onSurfaceVariant = 0xFFB4C1BE.toInt(),
-                outline = 0xFF35454A.toInt(),
-                tile = 0xFF26343A.toInt(),
-                accent = 0xFF9CE8C3.toInt(),
-                accentSoft = 0xFF294A3D.toInt(),
-                onAccent = 0xFF183329.toInt()
+                surface = 0xFF202833.toInt(),
+                onSurface = 0xFFF7F8FC.toInt(),
+                onSurfaceVariant = 0xFFB8C3D3.toInt(),
+                outline = 0xFF384555.toInt(),
+                tile = 0xFF2A3545.toInt(),
+                accent = 0xFF75E0C0.toInt(),
+                accentSoft = 0xFF294B50.toInt(),
+                onAccent = 0xFF102F35.toInt()
             )
         } else {
             Colors(
                 background = background,
-                surface = 0xFFFFFEFA.toInt(),
-                onSurface = 0xFF202A2A.toInt(),
-                onSurfaceVariant = 0xFF66716D.toInt(),
-                outline = 0xFFE4E8E1.toInt(),
-                tile = 0xFFF3F5EF.toInt(),
-                accent = 0xFF267A5B.toInt(),
-                accentSoft = 0xFFDDF3E7.toInt(),
+                surface = 0xFFFFFFFF.toInt(),
+                onSurface = 0xFF17263A.toInt(),
+                onSurfaceVariant = 0xFF63748A.toInt(),
+                outline = 0xFFE1EAF2.toInt(),
+                tile = 0xFFF1F6FB.toInt(),
+                accent = 0xFF159D83.toInt(),
+                accentSoft = 0xFFDDF7EF.toInt(),
                 onAccent = 0xFFFFFFFF.toInt()
             )
         }
     }
 }
 
-/** سازنده‌های مشترک UI برنامه‌ای؛ زبان بصری «سد» در بازطراحی تیره‌ی مدرن:
+/** سازنده‌های مشترک UI برنامه‌ای؛ زبان بصری «سد»:
  *  کارت‌های نرم و گرد، دکمه‌های قرصیِ برجسته با سایه‌ی ظریف، حلقه‌ی درشت سشن. */
 object UiKit {
 
