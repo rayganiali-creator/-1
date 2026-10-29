@@ -10,6 +10,7 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import com.example.blocker.PrefsManager
 import com.example.blocker.admin.DeviceAdminSetup
 import com.example.blocker.admin.DeviceOwnerHelper
@@ -80,12 +81,37 @@ class SettingsActivity : AppCompatActivity() {
             c.addView(UiKit.body(this, "این مقدار هنگام ساخت هر سشن Strict داخل سشن قفل می‌شود؛ تغییرش سشن جاری را عوض نمی‌کند.", 12f))
         })
 
+        column.addView(UiKit.card(this) { c ->
+            c.addView(UiKit.title(this, "ظاهر برنامه", 17f))
+            c.addView(UiKit.body(this, "به‌صورت پیش‌فرض از تم گوشی پیروی می‌کند؛ در صورت تمایل می‌توانی حالت روشن یا تیره را ثابت انتخاب کنی."))
+            val group = RadioGroup(this)
+            listOf("system" to "مطابق تنظیمات گوشی", "light" to "روشن", "dark" to "تیره").forEach { (mode, label) ->
+                group.addView(RadioButton(this).apply {
+                    text = label
+                    tag = mode
+                    isChecked = PrefsManager.getTheme(this@SettingsActivity) == mode
+                    id = android.view.View.generateViewId()
+                })
+            }
+            group.setOnCheckedChangeListener { _, checkedId ->
+                val mode = group.findViewById<RadioButton>(checkedId)?.tag as? String ?: return@setOnCheckedChangeListener
+                PrefsManager.setTheme(this, mode)
+                AppCompatDelegate.setDefaultNightMode(when (mode) {
+                    "light" -> AppCompatDelegate.MODE_NIGHT_NO
+                    "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                    else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                })
+                recreate()
+            }
+            c.addView(group)
+        })
+
         renderSelfProtectionCard()
         renderDeviceAdminCard()
         renderBatteryCard()
 
         column.addView(UiKit.card(this) { c ->
-            c.addView(UiKit.title(this, "رنگ پس‌زمینه", 17f))
+            c.addView(UiKit.title(this, "رنگ پس‌زمینه صفحه مسدودسازی", 17f))
             c.addView(UiKit.body(this, "این رنگ به عنوان پس‌زمینه‌ی صفحه‌ی بلاک استفاده می‌شود."))
             val dots = listOf(
                 0xFF102A43.toInt(),
