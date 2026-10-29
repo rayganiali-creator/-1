@@ -185,8 +185,16 @@ class BlockAccessibilityService : AccessibilityService() {
             // با هم جمع نمی‌کنیم؛ این کار جلوی اشتباه گرفتن کادر پیام با کادر جستجو را می‌گیرد.
             val changedInputText = if (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED)
                 editableEventText(event) else null
-            val explicitSearchInput = changedInputText != null && isSearchInputEvent(event, targetPackage)
-            val fallbackSearchInput = changedInputText != null && searchModeActive
+            val explicitSearchInput = SearchIntentPolicy.shouldInspectInput(
+                hasEditableText = changedInputText != null,
+                isSearchField = isSearchInputEvent(event, targetPackage),
+                temporarySearchContext = false
+            )
+            val fallbackSearchInput = SearchIntentPolicy.shouldInspectInput(
+                hasEditableText = changedInputText != null,
+                isSearchField = false,
+                temporarySearchContext = searchModeActive
+            )
             val searchInputChanged = explicitSearchInput || fallbackSearchInput
             val submittedQuery = if (searchSubmitted) findFocusedInputText(targetPackage) else null
             val keywordInputText = when {
@@ -196,7 +204,7 @@ class BlockAccessibilityService : AccessibilityService() {
             }
             // زمینه‌ی fallback یک‌بار مصرف است؛ پس از اولین تغییر فیلد مصرف می‌شود تا
             // به کادر پیام یا صفحه‌ی بعدی سرایت نکند.
-            if (fallbackSearchInput) searchModePackage = null
+            if (fallbackSearchInput || (searchSubmitted && !submittedQuery.isNullOrBlank())) searchModePackage = null
             val pageContentTrigger =
                 PrefsManager.isPageContentBlockingEnabled(this) &&
                     (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
@@ -247,7 +255,7 @@ class BlockAccessibilityService : AccessibilityService() {
         // اگر کاربر متن جستجو را تغییر داده یا از فیلد خارج شده، بلاک معلق لغو می‌شود.
         if (original.ruleId != null && !original.queryText.isNullOrBlank()) {
             val current = findFocusedInputText(original.packageName)
-            if (TextNormalizer.normalize(current.orEmpty()) != TextNormalizer.normalize(original.queryText)) return
+            if (!SearchIntentPolicy.sameQuery(current, original.queryText)) return
         }
         val fresh = try {
             findCandidate(original.packageName, config, keywordTriggerAllowed = true, keywordInputText = original.queryText)
