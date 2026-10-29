@@ -43,14 +43,15 @@ object ThemePalette {
     )
 
     fun resolve(context: Context): Colors {
-        // پس‌زمینه‌ی انتخابی کاربر حفظ می‌شود، اما کارت‌ها و دکمه‌ها از یک
-        // پالت هماهنگِ خنثی استفاده می‌کنند تا رنگ‌های نامرتبط روی هم نیفتند.
-        val background = PrefsManager.getBlockedBg(context)
-        // محاسبه‌ی روشنایی دستی برای سازگاری با Android 7 (minSdk 24).
-        val red = android.graphics.Color.red(background) / 255f
-        val green = android.graphics.Color.green(background) / 255f
-        val blue = android.graphics.Color.blue(background) / 255f
-        val darkMode = (0.2126f * red + 0.7152f * green + 0.0722f * blue) < 0.42f
+        // تم سیستم به‌صورت پیش‌فرض دنبال می‌شود؛ انتخاب دستی روشن/تیره در تنظیمات اولویت دارد.
+        val darkMode = when (PrefsManager.getTheme(context)) {
+            "light" -> false
+            "dark" -> true
+            else -> (context.resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+        val background = if (darkMode) 0xFF151C27.toInt() else 0xFFF4F7FC.toInt()
         return if (darkMode) {
             Colors(
                 background = background,
