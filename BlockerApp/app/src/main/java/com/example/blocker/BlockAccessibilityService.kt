@@ -174,8 +174,15 @@ class BlockAccessibilityService : AccessibilityService() {
             val searchSubmitted =
                 event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && isSearchActionEvent(event)
             if (searchSubmitted) {
-                searchModePackage = targetPackage
-                searchModeStartedAt = System.currentTimeMillis()
+                // اگر یک فیلد قبلاً متن دارد، احتمالاً دکمه‌ی ارسال جستجوست؛ زمینه‌ی
+                // fallback را دوباره فعال نکن تا به کادر پیام بعدی سرایت نکند.
+                val existingInput = findFocusedInputText(targetPackage)
+                if (existingInput.isNullOrBlank()) {
+                    searchModePackage = targetPackage
+                    searchModeStartedAt = System.currentTimeMillis()
+                } else {
+                    searchModePackage = null
+                }
             }
             val searchModeActive = searchModePackage == targetPackage &&
                 System.currentTimeMillis() - searchModeStartedAt <= searchModeTtlMs
@@ -196,15 +203,10 @@ class BlockAccessibilityService : AccessibilityService() {
                 temporarySearchContext = searchModeActive
             )
             val searchInputChanged = explicitSearchInput || fallbackSearchInput
-            val submittedQuery = if (searchSubmitted) findFocusedInputText(targetPackage) else null
-            val keywordInputText = when {
-                searchInputChanged -> changedInputText
-                !submittedQuery.isNullOrBlank() -> submittedQuery
-                else -> null
-            }
+            val keywordInputText = if (searchInputChanged) changedInputText else null
             // زمینه‌ی fallback یک‌بار مصرف است؛ پس از اولین تغییر فیلد مصرف می‌شود تا
             // به کادر پیام یا صفحه‌ی بعدی سرایت نکند.
-            if (fallbackSearchInput || (searchSubmitted && !submittedQuery.isNullOrBlank())) searchModePackage = null
+            if (fallbackSearchInput) searchModePackage = null
             val pageContentTrigger =
                 PrefsManager.isPageContentBlockingEnabled(this) &&
                     (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
