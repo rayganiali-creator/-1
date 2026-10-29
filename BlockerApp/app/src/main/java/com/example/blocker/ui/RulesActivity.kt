@@ -176,19 +176,26 @@ class RulesActivity : AppCompatActivity() {
                 row.addView(UiKit.title(this, domain, 15f).apply {
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 })
-                row.addView(SwitchMaterial(this).apply {
+                val websiteSwitch = SwitchMaterial(this).apply {
                     isChecked = active
                     isEnabled = !locked
                     contentDescription = "مسدودسازی $domain"
-                    setOnCheckedChangeListener { _, checked ->
-                        if (!guardLocked()) PrefsManager.setBlockedWebsiteEnabled(this@RulesActivity, domain, checked)
-                    }
-                })
+                }
+                row.addView(websiteSwitch)
                 row.addView(UiKit.textButton(this, "حذف") {
                     if (!guardLocked()) { PrefsManager.removeBlockedWebsite(this@RulesActivity, domain); render() }
                 }.apply { isEnabled = !locked })
                 c.addView(row)
-                c.addView(UiKit.body(this, if (active) "مسدود است" else "غیرفعال است", 12f))
+                val statusLabel = UiKit.body(this, if (active) "مسدود است" else "غیرفعال است", 12f)
+                c.addView(statusLabel)
+                websiteSwitch.setOnCheckedChangeListener { _, checked ->
+                    if (!guardLocked()) {
+                        PrefsManager.setBlockedWebsiteEnabled(this@RulesActivity, domain, checked)
+                        statusLabel.text = if (checked) "مسدود است" else "غیرفعال است"
+                    } else {
+                        websiteSwitch.isChecked = !checked
+                    }
+                }
             })
         }
         val domainInput = UiKit.textField(this, "example.com").apply {
