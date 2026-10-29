@@ -72,7 +72,7 @@ class SemanticEngineTest {
     }
 
     @Test fun learnedAllowlistBlocksFutureMatches() {
-        val learned = setOf("r1|${SemanticEngine.evidenceKey("قمار")}")
+        val learned = setOf("r1||${SemanticEngine.evidenceKey("قمار")}")
         assertNull(match("قمار", listOf(rule("قمار")), learned))
         // ولی قانون دیگر با همان کلمه هنوز کار می‌کند.
         assertNotNull(match("قمار", listOf(rule("قمار", "r2")), learned))

@@ -78,7 +78,7 @@ class RulesActivity : AppCompatActivity() {
             }
         })
         column.addView(search)
-        column.addView(UiKit.body(this, "کلمه فقط وقتی بلاک می‌شود که آن را جستجو کنی (جعبه‌ی جستجو یا نوار آدرس) یا در متن صفحه باشد؛ صرفِ دیده شدن در لیست تاریخچه یا پیشنهادها بلاک نمی‌کند. کلمات همیشه به‌صورت کلمه‌ی کامل تطبیق داده می‌شوند؛ «فوت» روی «فوتبال» صدق نمی‌کند. قوانین فقط وسط سشن اعمال می‌شوند. با کلید کنار هر قانون می‌توانی آن را موقتاً خاموش کنی."))
+        column.addView(UiKit.body(this, "کلمه‌ها در فیلدهای جستجو و نوار آدرس شناسایی‌شده بررسی می‌شوند؛ متن پست‌ها و پیام‌های عادی نباید باعث بلاک شود. با کلید کنار هر قانون، همان قانون را روشن یا خاموش کن. تغییرها خارج از سشن هم ذخیره می‌شوند؛ در سشن Strict تنظیمات همان سشن قفل است."))
         val rules = PrefsManager.getRules(this)
         if (rules.isEmpty()) column.addView(UiKit.card(this) { c ->
             c.addView(UiKit.body(this, "هنوز قانونی ثبت نشده است. اولین کلمه را اضافه کن تا سد جلویش را بگیرد."))
@@ -164,14 +164,38 @@ class RulesActivity : AppCompatActivity() {
 
         // دامنه‌ها
         column.addView(UiKit.title(this, "سایت‌های مسدود (دامنه)", 19f))
-        val sites = PrefsManager.getBlockedWebsites(this)
+        val sites = PrefsManager.getAllBlockedWebsites(this)
         if (sites.isEmpty()) column.addView(UiKit.body(this, "دامنه‌ای ثبت نشده است."))
         sites.sorted().forEach { domain ->
             column.addView(UiKit.card(this) { c ->
-                c.addView(UiKit.row(this, UiKit.title(this, domain, 15f),
-                    UiKit.textButton(this, "حذف") {
-                        if (!guardLocked()) { PrefsManager.removeBlockedWebsite(this@RulesActivity, domain); render() }
-                    }.apply { isEnabled = !locked }))
+                val active = domain in PrefsManager.getBlockedWebsites(this@RulesActivity)
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                }
+                row.addView(UiKit.title(this, domain, 15f).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                val websiteSwitch = SwitchMaterial(this).apply {
+                    isChecked = active
+                    isEnabled = !locked
+                    contentDescription = "مسدودسازی $domain"
+                }
+                row.addView(websiteSwitch)
+                row.addView(UiKit.textButton(this, "حذف") {
+                    if (!guardLocked()) { PrefsManager.removeBlockedWebsite(this@RulesActivity, domain); render() }
+                }.apply { isEnabled = !locked })
+                c.addView(row)
+                val statusLabel = UiKit.body(this, if (active) "مسدود است" else "غیرفعال است", 12f)
+                c.addView(statusLabel)
+                websiteSwitch.setOnCheckedChangeListener { _, checked ->
+                    if (!guardLocked()) {
+                        PrefsManager.setBlockedWebsiteEnabled(this@RulesActivity, domain, checked)
+                        statusLabel.text = if (checked) "مسدود است" else "غیرفعال است"
+                    } else {
+                        render()
+                    }
+                }
             })
         }
         val domainInput = UiKit.textField(this, "example.com").apply {

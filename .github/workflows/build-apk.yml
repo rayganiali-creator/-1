@@ -2,6 +2,8 @@ name: Build Blocker APK
 
 on:
   push:
+    branches: [ "**" ]
+  pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
 

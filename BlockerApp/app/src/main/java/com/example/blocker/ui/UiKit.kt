@@ -23,11 +23,8 @@ import com.example.blocker.PrefsManager
 import com.example.blocker.R
 import com.google.android.material.card.MaterialCardView
 
-/** پالت رنگی برنامه بر اساس انتخاب کاربر برای رنگ پس‌زمینه (تنظیمات > رنگ پس‌زمینه).
- *  زبان بازطراحی تیره‌ی مدرن (موکاپ‌های تأییدشده‌ی ۲۰۲۶-۱۰-۲۴): پس‌زمینه‌ی زغالی،
- *  سطح کارت زغالیِ روشن‌تر، لهجه‌ی نعنایی. پیش‌فرض (خودکار) حالا تیره است تا
- *  ظاهر برنامه همان موکاپ‌های تأییدشده باشد؛ روشن/نعنایی/آبی/کرمی همچنان از
- *  تنظیمات قابل انتخاب‌اند و لهجه‌شان با همان تم هماهنگ می‌شود. */
+/** پالت رنگی برنامه با سطوح آبی-یخی و سبز-فیروزه‌ای، هماهنگ با کارت‌های رنگی.
+ *  روشنایی پس‌زمینه از انتخاب تم کاربر/سیستم پیروی می‌کند. */
 object ThemePalette {
     data class Colors(
         val background: Int,
@@ -46,17 +43,45 @@ object ThemePalette {
     )
 
     fun resolve(context: Context): Colors {
-        // طرح تأییدشده فقط تیره است؛ تم روشن/کرمی از برنامه حذف شده است.
-        // «رنگ پس‌زمینه» در تنظیمات حالا رنگ صفحه‌ی بلاک است، نه تم برنامه.
-        return dark()
+        // تم سیستم به‌صورت پیش‌فرض دنبال می‌شود؛ انتخاب دستی روشن/تیره در تنظیمات اولویت دارد.
+        val darkMode = when (PrefsManager.getTheme(context)) {
+            "light" -> false
+            "dark" -> true
+            else -> (context.resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+        val background = if (darkMode) 0xFF151C27.toInt() else 0xFFF4F7FC.toInt()
+        return if (darkMode) {
+            Colors(
+                background = background,
+                surface = 0xFF202833.toInt(),
+                onSurface = 0xFFF7F8FC.toInt(),
+                onSurfaceVariant = 0xFFB8C3D3.toInt(),
+                outline = 0xFF384555.toInt(),
+                tile = 0xFF2A3545.toInt(),
+                accent = 0xFF75E0C0.toInt(),
+                accentSoft = 0xFF294B50.toInt(),
+                onAccent = 0xFF102F35.toInt()
+            )
+        } else {
+            Colors(
+                background = background,
+                surface = 0xFFFFFFFF.toInt(),
+                onSurface = 0xFF17263A.toInt(),
+                onSurfaceVariant = 0xFF63748A.toInt(),
+                outline = 0xFFE1EAF2.toInt(),
+                tile = 0xFFF1F6FB.toInt(),
+                accent = 0xFF159D83.toInt(),
+                accentSoft = 0xFFDDF7EF.toInt(),
+                onAccent = 0xFFFFFFFF.toInt()
+            )
+        }
     }
-
-    private fun light() = Colors(0xFFF4F6F5.toInt(), 0xFFFFFFFF.toInt(), 0xFF14181D.toInt(), 0xFF5A6363.toInt(), 0xFFE2E8E6.toInt(), 0xFFEEF2F0.toInt(), 0xFF0E9F76.toInt(), 0xFFD9F5EA.toInt(), 0xFFFFFFFF.toInt())
-    private fun dark() = Colors(0xFF14181D.toInt(), 0xFF232A32.toInt(), 0xFFFFFFFF.toInt(), 0xFF9AA7B0.toInt(), 0xFF2E3A40.toInt(), 0xFF1E242B.toInt(), 0xFF7CFFD9.toInt(), 0xFF1E3A32.toInt(), 0xFF14181D.toInt())
 }
 
-/** سازنده‌های مشترک UI برنامه‌ای؛ زبان بصری «سد» در بازطراحی تیره‌ی مدرن:
- *  کارت‌های گرد ۲۸ و تخت (بدون سایه)، دکمه‌های قرصی نعنایی، حلقه‌ی درشت سشن. */
+/** سازنده‌های مشترک UI برنامه‌ای؛ زبان بصری «سد»:
+ *  کارت‌های نرم و گرد، دکمه‌های قرصیِ برجسته با سایه‌ی ظریف، حلقه‌ی درشت سشن. */
 object UiKit {
 
     fun dp(context: Context, value: Int): Int =
@@ -117,7 +142,7 @@ object UiKit {
     fun card(context: Context, build: (LinearLayout) -> Unit): MaterialCardView {
         val card = MaterialCardView(context).apply {
             radius = dp(context, 28).toFloat()
-            cardElevation = 0f
+            cardElevation = dp(context, 2).toFloat()
             setCardBackgroundColor(ThemePalette.resolve(context).surface)
             setStrokeColor(android.content.res.ColorStateList.valueOf(ThemePalette.resolve(context).outline))
             strokeWidth = dp(context, 1)
@@ -181,7 +206,7 @@ object UiKit {
         val palette = ThemePalette.resolve(context)
         val card = MaterialCardView(context).apply {
             radius = dp(context, 24).toFloat()
-            cardElevation = 0f
+            cardElevation = dp(context, 2).toFloat()
             setCardBackgroundColor(palette.surface)
             setStrokeColor(android.content.res.ColorStateList.valueOf(palette.outline))
             strokeWidth = dp(context, 1)
@@ -305,7 +330,7 @@ object UiKit {
         val palette = ThemePalette.resolve(context)
         val card = MaterialCardView(context).apply {
             radius = dp(context, 24).toFloat()
-            cardElevation = 0f
+            cardElevation = dp(context, 2).toFloat()
             setCardBackgroundColor(palette.tile)
             setStrokeColor(android.content.res.ColorStateList.valueOf(palette.outline))
             strokeWidth = dp(context, 1)
@@ -344,13 +369,17 @@ object UiKit {
         return AppCompatButton(context).apply {
             this.text = text
             background = GradientDrawable().apply {
-                cornerRadius = dp(context, 28).toFloat()
+                cornerRadius = dp(context, 30).toFloat()
                 setColor(palette.accent)
+                setStroke(dp(context, 1), palette.accent)
             }
+            elevation = dp(context, 3).toFloat()
+            stateListAnimator = null
             setTextColor(palette.onAccent)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setTypeface(typeface, Typeface.BOLD)
-            minimumHeight = dp(context, 56)
+            minimumHeight = dp(context, 60)
+            setPadding(dp(context, 26), dp(context, 10), dp(context, 26), dp(context, 10))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { topMargin = dp(context, 8) }
             setOnClickListener { onClick() }
@@ -362,13 +391,17 @@ object UiKit {
         return AppCompatButton(context).apply {
             this.text = text
             background = GradientDrawable().apply {
-                cornerRadius = dp(context, 24).toFloat()
+                cornerRadius = dp(context, 28).toFloat()
                 setColor(palette.accentSoft)
+                setStroke(dp(context, 1), palette.outline)
             }
+            elevation = dp(context, 2).toFloat()
+            stateListAnimator = null
             setTextColor(palette.accent)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setTypeface(typeface, Typeface.BOLD)
-            minimumHeight = dp(context, 52)
+            minimumHeight = dp(context, 56)
+            setPadding(dp(context, 24), dp(context, 10), dp(context, 24), dp(context, 10))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { topMargin = dp(context, 8) }
             setOnClickListener { onClick() }

@@ -32,6 +32,7 @@ object PrefsManager {
     private const val PREFS_NAME = "blocker_prefs"
     private const val KEY_BLOCKED_APPS = "blocked_apps"
     private const val KEY_BLOCKED_WEBSITES = "blocked_websites"
+    private const val KEY_DISABLED_WEBSITES = "disabled_websites_v1"
     private const val KEY_BLOCKED_KEYWORDS = "blocked_keywords"
     private const val KEY_RULES_JSON = "rules_json_v2"
     private const val KEY_PROFILES_JSON = "profiles_json_v2"
@@ -53,6 +54,7 @@ object PrefsManager {
     private const val KEY_AI_INTENTION_JSON = "ai_intention_json"
     private const val KEY_THEME = "theme"
     private const val KEY_BLOCKED_BG = "blocked_bg"
+    private const val KEY_PAGE_CONTENT_BLOCKING = "page_content_blocking"
 
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -84,19 +86,49 @@ object PrefsManager {
     }
 
     // ---------- سایت‌های مسدود شده ----------
+    /** فقط دامنه‌های فعال را برمی‌گرداند؛ این متد برای موتور مسدودسازی است. */
     fun getBlockedWebsites(context: Context): MutableSet<String> =
         LinkedHashSet(safeStringSet(context, KEY_BLOCKED_WEBSITES))
 
+    /** همه‌ی دامنه‌های ثبت‌شده، از جمله دامنه‌هایی که کاربر موقتاً خاموش کرده است. */
+    fun getAllBlockedWebsites(context: Context): MutableSet<String> {
+        val all = LinkedHashSet(safeStringSet(context, KEY_BLOCKED_WEBSITES))
+        all.addAll(safeStringSet(context, KEY_DISABLED_WEBSITES))
+        return all
+    }
+
+    fun setBlockedWebsiteEnabled(context: Context, domain: String, enabled: Boolean) {
+        val normalized = domain.trim().lowercase()
+        if (normalized.isBlank()) return
+        val active = getBlockedWebsites(context)
+        val disabled = LinkedHashSet(safeStringSet(context, KEY_DISABLED_WEBSITES))
+        if (enabled) {
+            active.add(normalized)
+            disabled.remove(normalized)
+        } else {
+            active.remove(normalized)
+            disabled.add(normalized)
+        }
+        prefs(context).edit()
+            .putStringSet(KEY_BLOCKED_WEBSITES, active)
+            .putStringSet(KEY_DISABLED_WEBSITES, disabled)
+            .apply()
+    }
+
     fun addBlockedWebsite(context: Context, domain: String) {
-        val set = getBlockedWebsites(context)
-        set.add(domain.trim().lowercase())
-        prefs(context).edit().putStringSet(KEY_BLOCKED_WEBSITES, set).apply()
+        setBlockedWebsiteEnabled(context, domain, true)
     }
 
     fun removeBlockedWebsite(context: Context, domain: String) {
-        val set = getBlockedWebsites(context)
-        set.remove(domain)
-        prefs(context).edit().putStringSet(KEY_BLOCKED_WEBSITES, set).apply()
+        val normalized = domain.trim().lowercase()
+        val active = getBlockedWebsites(context)
+        val disabled = LinkedHashSet(safeStringSet(context, KEY_DISABLED_WEBSITES))
+        active.remove(normalized)
+        disabled.remove(normalized)
+        prefs(context).edit()
+            .putStringSet(KEY_BLOCKED_WEBSITES, active)
+            .putStringSet(KEY_DISABLED_WEBSITES, disabled)
+            .apply()
     }
 
     // ---------- کلمات کلیدی: API قدیمی (سازگاری) ----------
@@ -161,8 +193,9 @@ object PrefsManager {
         HashSet(safeStringSet(context, KEY_LEARNED_ALLOW))
 
     /** ثبت اینکه این عبارت برای این قانون اشتباه بلاک شده؛ دفعات بعد همان عبارت بلاک نمی‌شود. */
-    fun addLearnedAllow(context: Context, ruleId: String, evidence: String) {
-        val key = "$ruleId|${SemanticEngine.evidenceKey(evidence)}"
+    fun addLearnedAllow(context: Context, ruleId: String, evidence: String, packageName: String) {
+        // محدود به همان برنامه؛ بازخورد اشتباه نباید قانون را در اپ‌های دیگر خاموش کند.
+        val key = "${ruleId}|${packageName}|${SemanticEngine.evidenceKey(evidence)}"
         val set = getLearnedAllow(context).toMutableSet()
         if (set.add(key)) {
             prefs(context).edit().putStringSet(KEY_LEARNED_ALLOW, set).apply()
@@ -282,6 +315,14 @@ object PrefsManager {
     }
 
     // ---------- تنظیمات ----------
+    /** پیش‌فرض خاموش: کلمات داخل بدنه‌ی صفحه بلاک نمی‌شوند، فقط جستجوی ارسال‌شده بررسی می‌شود. */
+    fun isPageContentBlockingEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_PAGE_CONTENT_BLOCKING, false)
+
+    fun setPageContentBlockingEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_PAGE_CONTENT_BLOCKING, enabled).apply()
+    }
+
     /** تم پس‌زمینه: system (خودکار)، light، dark، mint، blue، cream. */
     fun getTheme(context: Context): String =
         prefs(context).getString(KEY_THEME, "system") ?: "system"
@@ -291,8 +332,13 @@ object PrefsManager {
     }
 
     /** رنگ پس‌زمینه‌ی صفحه‌ی بلاک (پیش‌فرض: آبی نفتی)؛ از تنظیمات انتخاب می‌شود. */
-    fun getBlockedBg(context: Context): Int =
-        prefs(context).getInt(KEY_BLOCKED_BG, 0xFF102A43.toInt())
+    fun getBlockedBg(context: Context): Int {
+        val preferredDefault = 0xFFF4F3ED.toInt()
+        val saved = prefs(context).getInt(KEY_BLOCKED_BG, preferredDefault)
+        // مهاجرت رنگ پیش‌فرض قدیمیِ سرمه‌ای به زمینه‌ی گرم و روشن؛ انتخاب‌های
+        // سفارشی کاربر دست‌نخورده می‌مانند.
+        return if (saved == 0xFF102A43.toInt()) preferredDefault else saved
+    }
 
     fun setBlockedBg(context: Context, color: Int) {
         prefs(context).edit().putInt(KEY_BLOCKED_BG, color).apply()

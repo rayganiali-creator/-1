@@ -45,6 +45,7 @@ class BlockAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "BlockerService"
+        private val LIVE_SEARCH_PACKAGES = setOf("org.telegram.messenger", "com.instagram.android")
         @Volatile var instanceAlive: Boolean = false
 
         private val URL_BAR_IDS = listOf(
@@ -78,7 +79,9 @@ class BlockAccessibilityService : AccessibilityService() {
         val delaySeconds: Int,
         /** برای بلاک کلمه‌کلیدی: شناسه‌ی قانون و عبارتِ شاهد، برای بازخورد «اشتباه بود». */
         val ruleId: String? = null,
-        val evidence: String? = null
+        val evidence: String? = null,
+        /** متن همان فیلد ورودی که رویداد جست‌وجو را ایجاد کرده؛ فقط در حافظه‌ی کوتاه‌مدت. */
+        val queryText: String? = null
     )
 
     private val handler = Handler(Looper.getMainLooper())
@@ -93,6 +96,12 @@ class BlockAccessibilityService : AccessibilityService() {
     private var lastOwnAppInfoPageTime: Long = 0L
     private var lastHeartbeat: Long = 0L
     private var lastSessionCheck: Long = 0L
+    // بعضی اپ‌ها (از جمله نسخه‌هایی از تلگرام/اینستاگرام) شناسه یا hint فیلد جستجو را افشا نمی‌کنند.
+    // پس از لمس کنترل جستجو، فقط همان اپ برای مدت کوتاه در حالت جستجو تلقی می‌شود.
+    private var searchModePackage: String? = null
+    private var searchModeStartedAt: Long = 0L
+    // زمینه‌ی موقت فقط برای بازکردن فیلد جستجو؛ هرگز همه‌ی متن‌های صفحه را جستجو نمی‌کنیم.
+    private val searchModeTtlMs = 30_000L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -108,12 +117,13 @@ class BlockAccessibilityService : AccessibilityService() {
     private fun effectiveConfig(): EffectiveConfig {
         val session = SessionManager.activeSession(this)
         return when {
-            // بدون سشن، هیچ بلاک محتوایی نیست: صرفِ اضافه کردن قانون بلاک نمی‌کند.
+            // قوانین ذخیره‌شده باید بیرون از سشن هم کار کنند؛ سشن Strict فقط
+            // snapshot خودش را اعمال می‌کند. بدون سشن، تنظیمات جاری استفاده می‌شود.
             session == null -> EffectiveConfig(
-                apps = emptySet(),
-                websites = emptySet(),
-                rules = emptyList(),
-                delaySeconds = 0,
+                apps = PrefsManager.getBlockedApps(this),
+                websites = PrefsManager.getBlockedWebsites(this),
+                rules = PrefsManager.getRules(this).filter { it.enabled },
+                delaySeconds = PrefsManager.getDelaySeconds(this),
                 strict = false
             )
             session.mode == SessionMode.STRICT -> EffectiveConfig(
@@ -148,9 +158,61 @@ class BlockAccessibilityService : AccessibilityService() {
             val activeWindowPackage = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
             if (OwnAppGuard.shouldSkip(packageName, activeWindowPackage, this.packageName)) return
 
-            if (checkSelfProtection(packageName)) return
+            // فعال‌بودن کیبورد می‌تواند activeWindowPackage را به Gboard/Samsung Keyboard
+            // تغییر دهد؛ برای تشخیص اپ جستجو از پکیج رخداد استفاده کن، نه پنجره‌ی کیبورد.
+            val targetPackage = if (isKeyboardPackage(packageName)) {
+                foregroundAppPackage() ?: packageName
+            } else {
+                // رویداد تایپ معمولاً از خود اپ می‌آید؛ activeWindow ممکن است به
+                // پنجره‌ی کیبورد اشاره کند و نباید نام اپ مقصد را عوض کند.
+                packageName
+            }
+            if (checkSelfProtection(targetPackage)) return
             val config = effectiveConfig()
-            val candidate = findCandidate(packageName, config)
+            // مهم: به محض تایپ در فیلدی که به‌عنوان جستجو/نوار آدرس شناسایی می‌شود،
+            // متن ورودی بررسی می‌شود؛ منتظر کلیک Search نمی‌مانیم. متن عادی صفحه بررسی نمی‌شود.
+            val searchSubmitted =
+                event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && isSearchActionEvent(event)
+            if (searchSubmitted) {
+                // اگر یک فیلد قبلاً متن دارد، احتمالاً دکمه‌ی ارسال جستجوست؛ زمینه‌ی
+                // fallback را دوباره فعال نکن تا به کادر پیام بعدی سرایت نکند.
+                val existingInput = findFocusedInputText(targetPackage)
+                if (existingInput.isNullOrBlank()) {
+                    searchModePackage = targetPackage
+                    searchModeStartedAt = System.currentTimeMillis()
+                } else {
+                    searchModePackage = null
+                }
+            }
+            val searchModeActive = searchModePackage == targetPackage &&
+                System.currentTimeMillis() - searchModeStartedAt <= searchModeTtlMs
+            if (searchModePackage == targetPackage && !searchModeActive) searchModePackage = null
+            // کلمه‌کلیدی فقط از متن فیلدی ارزیابی می‌شود که همین رویداد آن را تغییر داده،
+            // یا از فیلد ورودی متمرکز هنگام ارسال جستجو. هرگز همه‌ی EditTextهای صفحه را
+            // با هم جمع نمی‌کنیم؛ این کار جلوی اشتباه گرفتن کادر پیام با کادر جستجو را می‌گیرد.
+            val changedInputText = if (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED)
+                editableEventText(event) else null
+            val explicitSearchInput = SearchIntentPolicy.shouldInspectInput(
+                hasEditableText = changedInputText != null,
+                isSearchField = isSearchInputEvent(event, targetPackage),
+                temporarySearchContext = false
+            )
+            val fallbackSearchInput = SearchIntentPolicy.shouldInspectInput(
+                hasEditableText = changedInputText != null,
+                isSearchField = false,
+                temporarySearchContext = searchModeActive
+            )
+            val searchInputChanged = explicitSearchInput || fallbackSearchInput
+            val keywordInputText = if (searchInputChanged) changedInputText else null
+            // زمینه‌ی fallback یک‌بار مصرف است؛ پس از اولین تغییر فیلد مصرف می‌شود تا
+            // به کادر پیام یا صفحه‌ی بعدی سرایت نکند.
+            if (fallbackSearchInput) searchModePackage = null
+            val pageContentTrigger =
+                PrefsManager.isPageContentBlockingEnabled(this) &&
+                    (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
+                     event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+            val keywordTriggerAllowed = !keywordInputText.isNullOrBlank() || pageContentTrigger
+            val candidate = findCandidate(targetPackage, config, keywordTriggerAllowed, keywordInputText)
 
             if (candidate == null) {
                 // کانتکست دیگر واجد شرایط نیست → اقدام معلق کنسل شود
@@ -192,10 +254,15 @@ class BlockAccessibilityService : AccessibilityService() {
     /** لحظه‌ی اجرا: دوباره بررسی می‌کنیم که تریگر هنوز سر جایش هست یا نه. */
     private fun revalidateAndFire(original: Candidate, config: EffectiveConfig) {
         if (!pendingBlocks.consumeIfDue(System.currentTimeMillis(), original.signature)) return
-        val fresh = try { findCandidate(original.packageName, config) } catch (e: Exception) { null }
-        if (fresh != null && fresh.signature == original.signature) {
-            fireBlock(fresh)
+        // اگر کاربر متن جستجو را تغییر داده یا از فیلد خارج شده، بلاک معلق لغو می‌شود.
+        if (original.ruleId != null && !original.queryText.isNullOrBlank()) {
+            val current = findFocusedInputText(original.packageName)
+            if (!SearchIntentPolicy.sameQuery(current, original.queryText)) return
         }
+        val fresh = try {
+            findCandidate(original.packageName, config, keywordTriggerAllowed = true, keywordInputText = original.queryText)
+        } catch (e: Exception) { null }
+        if (fresh != null && fresh.signature == original.signature) fireBlock(fresh)
     }
 
     /**
@@ -306,20 +373,22 @@ class BlockAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun findCandidate(packageName: String, config: EffectiveConfig): Candidate? {
+    private fun findCandidate(
+        packageName: String,
+        config: EffectiveConfig,
+        keywordTriggerAllowed: Boolean = true,
+        keywordInputText: String? = null
+    ): Candidate? {
         // دفاع دوم: حتی اگر رخداد از جای دیگری آمده باشد (مثلاً بازبینی بلاک معلق
         // زمان‌دار)، متن پنجره‌ی خودمان هرگز ارزیابی نمی‌شود.
         val activeWindowPackage = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
         if (OwnAppGuard.shouldSkip(null, activeWindowPackage, this.packageName)) return null
-        // بلاک محتوا فقط وسط سشن: بدون سشنِ فعال، هیچ اپ/سایت/کلمه‌ای بلاک نمی‌شود.
-        // (این گارد، بازبینیِ بلاکِ معلقِ زمان‌دار را هم پوشش می‌دهد: اگر سشن وسط
-        // دیلی تمام شود، بلاک شلیک نمی‌شود.)
-        if (SessionManager.activeSession(this) == null) return null
+        // تنظیمات جاری خارج از سشن هم معتبرند؛ در سشن Strict، config از snapshot می‌آید.
         // ۱) بلاک برنامه
         if (config.apps.contains(packageName)) {
             return Candidate("app:$packageName", "app:$packageName", "این برنامه توسط شما مسدود شده است.", packageName, config.delaySeconds)
         }
-        val root = rootInActiveWindow ?: return null
+        val root = rootForPackage(packageName) ?: return null
         try {
             // ۲) بلاک دامنه از نوار آدرس مرورگر
             if (config.websites.isNotEmpty()) {
@@ -334,15 +403,22 @@ class BlockAccessibilityService : AccessibilityService() {
                     }
                 }
             }
-            // ۳) بلاک کلمه‌کلیدی با خط لوله‌ی تصمیم روی دستگاه (پیش‌فیلتر قطعی +
-            // طبقه‌بندی معنایی + سیاست آستانه + کش + بازگشت امن) و اجازه‌های
-            // آموخته‌شده — فقط روی متنِ ورودی (جستجو/نوار آدرس) و متن محتوای
-            // غیرلیستی؛ متن داخل لیست‌ها (تاریخچه، پیشنهادها، فید) به‌تنهایی بلاک نمی‌کند.
-            if (config.rules.isNotEmpty()) {
-                val inputText = StringBuilder()
+            // ۳) بلاک کلمه‌کلیدی با موتور تصمیم روی دستگاه.
+            // پیش‌فرض فقط پس از کلیک واقعی جستجو/ارسال، متن فیلد ورودی بررسی می‌شود.
+            // بررسی متن محتوای صفحه انتخابی است و از لیست‌ها/پیشنهادها صرف‌نظر می‌کند.
+            if (config.rules.isNotEmpty() && keywordTriggerAllowed) {
                 val contentText = StringBuilder()
-                collectScopedText(root, inputText, contentText, inList = false, maxNodes = 400)
-                val scopedText = inputText.toString() + " " + contentText.toString()
+                collectScopedText(root, StringBuilder(), contentText, inList = false, maxNodes = 400)
+                // منبع اصلی فقط متن همان فیلد جست‌وجوی واجد شرایط است؛ محتوای صفحه
+                // تنها در صورت فعال‌سازی صریح گزینه‌ی جداگانه به تصمیم اضافه می‌شود.
+                val scopedText = buildString {
+                    if (!keywordInputText.isNullOrBlank()) append(keywordInputText.take(2000))
+                    if (PrefsManager.isPageContentBlockingEnabled(this@BlockAccessibilityService)) {
+                        if (isNotEmpty()) append(' ')
+                        append(contentText)
+                    }
+                }
+                if (scopedText.isBlank()) return null
                 val decision = AiEngine.classify(
                     config.rules, scopedText, packageName,
                     PrefsManager.getLearnedAllow(this),
@@ -361,12 +437,14 @@ class BlockAccessibilityService : AccessibilityService() {
                         packageName,
                         decision.rule.effectiveDelaySeconds(config.delaySeconds),
                         decision.rule.id,
-                        decision.evidence
+                        decision.evidence,
+                        queryText = keywordInputText
                     )
                 }
             }
         } finally {
-            // root از rootInActiveWindow گرفته شده و recycle آن با خود سیستم است؛ فرزندان داخل collectText مدیریت می‌شوند.
+            // ریشه‌ی پنجره از AccessibilityWindowInfo ممکن است کپی مستقل باشد.
+            try { root.recycle() } catch (_: Exception) { }
         }
         return null
     }
@@ -391,8 +469,8 @@ class BlockAccessibilityService : AccessibilityService() {
         val isInput = KeywordScope.isInputNode(cls, node.isEditable)
         val target = when {
             isInput -> inputSb
-            nowInList -> null
-            else -> contentSb
+            !nowInList && PrefsManager.isPageContentBlockingEnabled(this) -> contentSb
+            else -> null
         }
         if (target != null) {
             node.text?.let { target.append(it).append(' ') }
@@ -403,6 +481,130 @@ class BlockAccessibilityService : AccessibilityService() {
             val child = node.getChild(i) ?: continue
             try { collectScopedText(child, inputSb, contentSb, nowInList, maxNodes, visited) } finally { child.recycle() }
         }
+    }
+
+
+    private fun isKeyboardPackage(packageName: String): Boolean {
+        val p = packageName.lowercase()
+        return p.contains("inputmethod") || p.contains("keyboard") ||
+            p.contains("honeyboard") || p.contains("swiftkey") ||
+            p.contains("ime") && (p.contains("google") || p.contains("samsung"))
+    }
+
+    private fun foregroundAppPackage(): String? {
+        try {
+            for (window in windows) {
+                val root = try { window.root } catch (_: Exception) { null } ?: continue
+                val name = root.packageName?.toString()
+                root.recycle()
+                if (!name.isNullOrBlank() && name != this.packageName && !isKeyboardPackage(name)) {
+                    return name
+                }
+            }
+        } catch (_: Exception) { }
+        val name = try { rootInActiveWindow?.packageName?.toString() } catch (_: Exception) { null }
+        return name?.takeIf { it != this.packageName && !isKeyboardPackage(it) }
+    }
+
+    /** متن رویداد فقط وقتی پذیرفته می‌شود که منبع واقعاً فیلد قابل‌ویرایش باشد. */
+    private fun editableEventText(event: AccessibilityEvent): String? {
+        val source = try { event.source } catch (_: Exception) { null } ?: return null
+        return try {
+            val isEdit = source.isEditable || source.className?.toString()?.substringAfterLast('.') == "EditText"
+            if (!isEdit) null else source.text?.toString()?.take(2000)
+        } finally { try { source.recycle() } catch (_: Exception) { } }
+    }
+
+    /** متن فیلد متمرکز اپ مقصد؛ برای بررسی جستجو در لحظه‌ی ارسال و بازاعتبارسنجی تأخیری. */
+    private fun findFocusedInputText(packageName: String): String? {
+        val root = rootForPackage(packageName) ?: return null
+        try {
+            val focused = try { root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } catch (_: Exception) { null }
+                ?: return null
+            return try {
+                val isEdit = focused.isEditable || focused.className?.toString()?.substringAfterLast('.') == "EditText"
+                if (!isEdit) null else focused.text?.toString()?.take(2000)
+            } finally { try { focused.recycle() } catch (_: Exception) { } }
+        } finally { try { root.recycle() } catch (_: Exception) { } }
+    }
+
+    /**
+     * متن فقط وقتی کاندید جستجو است که رویداد از فیلد قابل‌ویرایش بیاید و
+     * شناسه/راهنما/توضیح آن نشانه‌ی جستجو یا نوار آدرس داشته باشد. این کار از
+     * بلاک شدن متن پیام‌ها و فیلدهای عادی جلوگیری می‌کند، درحالی‌که برای اپ‌هایی
+     * که فیلد جستجوی استاندارد دارند به کیبورد خاصی وابسته نیست.
+     */
+    private fun isSearchInputEvent(event: AccessibilityEvent, packageName: String): Boolean {
+        val source = try { event.source } catch (_: Exception) { null } ?: return false
+        try {
+            if (!source.isEditable && source.className?.toString()?.substringAfterLast('.') != "EditText") {
+                return false
+            }
+            val markers = listOf(
+                "search", "query", "url", "address", "omnibox", "search_field",
+                "search_edit_text", "جستجو", "جست‌وجو", "بگرد", "نشانی", "آدرس"
+            )
+            var node: AccessibilityNodeInfo? = source
+            var depth = 0
+            while (node != null && depth < 4) {
+                val evidence = listOfNotNull(
+                    node.viewIdResourceName,
+                    node.contentDescription?.toString(),
+                    if (android.os.Build.VERSION.SDK_INT >= 26) node.hintText?.toString() else null
+                ).joinToString(" ").lowercase()
+                if (markers.any { evidence.contains(it) }) return true
+                val parent = try { node.parent } catch (_: Exception) { null }
+                if (node !== source) node.recycle()
+                node = parent
+                depth++
+            }
+            if (node != null && node !== source) node.recycle()
+            // بعضی نسخه‌های تلگرام/اینستاگرام شناسه‌ی قابل‌خواندن نمی‌دهند؛
+            // فقط وقتی خودِ فیلد ورودی صریحاً در صفحه‌ی جستجوست، hint آن بررسی شود.
+            return packageName in LIVE_SEARCH_PACKAGES &&
+                android.os.Build.VERSION.SDK_INT >= 26 &&
+                (source.hintText?.toString()?.isNotBlank() == true)
+        } finally {
+            source.recycle()
+        }
+    }
+
+    /** وقتی کیبورد باز است، root فعال ممکن است متعلق به IME باشد؛ ریشه‌ی خود اپ را پیدا کن. */
+    private fun rootForPackage(packageName: String): AccessibilityNodeInfo? {
+        try {
+            for (window in windows) {
+                val root = try { window.root } catch (_: Exception) { null } ?: continue
+                if (root.packageName?.toString() == packageName) return root
+                root.recycle()
+            }
+        } catch (_: Exception) { }
+        val active = try { rootInActiveWindow } catch (_: Exception) { null }
+        if (active?.packageName?.toString() == packageName) return active
+        try { active?.recycle() } catch (_: Exception) { }
+        return null
+    }
+
+    /** تشخیص محافظه‌کارانه‌ی عمل جستجو/ارسال در فیلد ورودی قابل‌دسترسی. */
+    private fun isSearchActionEvent(event: AccessibilityEvent): Boolean {
+        val parts = mutableListOf<String>()
+        event.text?.forEach { parts += it.toString() }
+        event.contentDescription?.toString()?.let { parts += it }
+        val source = try { event.source } catch (_: Exception) { null }
+        if (source != null) {
+            try {
+                // کلیک روی خودِ فیلد جستجو، انتخاب پیشنهاد یا فوکوس ورودی
+                // «ارسال جستجو» محسوب نمی‌شود.
+                if (source.isEditable) return false
+                source.text?.toString()?.let { parts += it }
+                source.contentDescription?.toString()?.let { parts += it }
+                source.viewIdResourceName?.let { parts += it }
+            } finally {
+                source.recycle()
+            }
+        }
+        val label = parts.joinToString(" ").lowercase()
+        return listOf("search", "query", "submit", "ime", "enter", "جستجو", "جست‌وجو", "بگرد", "انتقال")
+            .any { label.contains(it) }
     }
 
     private fun findUrlText(root: AccessibilityNodeInfo): String? {
@@ -430,6 +632,7 @@ class BlockAccessibilityService : AccessibilityService() {
             // برای بازخورد یادگیری روی صفحه‌ی بلاک (فقط بلاک کلمه‌کلیدی).
             candidate.ruleId?.let { putExtra(BlockedScreenActivity.EXTRA_RULE_ID, it) }
             candidate.evidence?.let { putExtra(BlockedScreenActivity.EXTRA_EVIDENCE, it) }
+            if (candidate.ruleId != null) putExtra(BlockedScreenActivity.EXTRA_PACKAGE_NAME, candidate.packageName)
         }
         startActivity(intent)
     }
