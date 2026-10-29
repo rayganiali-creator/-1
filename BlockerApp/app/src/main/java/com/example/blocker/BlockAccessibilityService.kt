@@ -94,6 +94,11 @@ class BlockAccessibilityService : AccessibilityService() {
     private var lastOwnAppInfoPageTime: Long = 0L
     private var lastHeartbeat: Long = 0L
     private var lastSessionCheck: Long = 0L
+    // بعضی اپ‌ها (از جمله نسخه‌هایی از تلگرام/اینستاگرام) شناسه یا hint فیلد جستجو را افشا نمی‌کنند.
+    // پس از لمس کنترل جستجو، فقط همان اپ برای مدت کوتاه در حالت جستجو تلقی می‌شود.
+    private var searchModePackage: String? = null
+    private var searchModeStartedAt: Long = 0L
+    private val searchModeTtlMs = 120_000L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -163,11 +168,18 @@ class BlockAccessibilityService : AccessibilityService() {
             val config = effectiveConfig()
             // مهم: به محض تایپ در فیلدی که به‌عنوان جستجو/نوار آدرس شناسایی می‌شود،
             // متن ورودی بررسی می‌شود؛ منتظر کلیک Search نمی‌مانیم. متن عادی صفحه بررسی نمی‌شود.
-            val searchInputChanged =
-                event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED &&
-                    isSearchInputEvent(event, packageName)
             val searchSubmitted =
                 event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && isSearchActionEvent(event)
+            if (searchSubmitted) {
+                searchModePackage = targetPackage
+                searchModeStartedAt = System.currentTimeMillis()
+            }
+            val searchModeActive = searchModePackage == targetPackage &&
+                System.currentTimeMillis() - searchModeStartedAt <= searchModeTtlMs
+            if (searchModePackage == targetPackage && !searchModeActive) searchModePackage = null
+            val searchInputChanged =
+                event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED &&
+                    (isSearchInputEvent(event, packageName) || searchModeActive)
             val pageContentTrigger =
                 PrefsManager.isPageContentBlockingEnabled(this) &&
                     (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
