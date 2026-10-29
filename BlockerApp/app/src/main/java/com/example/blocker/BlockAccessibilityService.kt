@@ -152,11 +152,12 @@ class BlockAccessibilityService : AccessibilityService() {
 
             // فعال‌بودن کیبورد می‌تواند activeWindowPackage را به Gboard/Samsung Keyboard
             // تغییر دهد؛ برای تشخیص اپ جستجو از پکیج رخداد استفاده کن، نه پنجره‌ی کیبورد.
-            val targetPackage = when {
-                packageName in LIVE_SEARCH_PACKAGES -> packageName
-                activeWindowPackage != null && activeWindowPackage != "com.google.android.inputmethod.latin" &&
-                    activeWindowPackage != "com.samsung.android.honeyboard" -> activeWindowPackage
-                else -> packageName
+            val targetPackage = if (isKeyboardPackage(packageName)) {
+                foregroundAppPackage() ?: packageName
+            } else {
+                // رویداد تایپ معمولاً از خود اپ می‌آید؛ activeWindow ممکن است به
+                // پنجره‌ی کیبورد اشاره کند و نباید نام اپ مقصد را عوض کند.
+                packageName
             }
             if (checkSelfProtection(targetPackage)) return
             val config = effectiveConfig()
@@ -439,6 +440,28 @@ class BlockAccessibilityService : AccessibilityService() {
         }
     }
 
+
+    private fun isKeyboardPackage(packageName: String): Boolean {
+        val p = packageName.lowercase()
+        return p.contains("inputmethod") || p.contains("keyboard") ||
+            p.contains("honeyboard") || p.contains("swiftkey") ||
+            p.contains("ime") && (p.contains("google") || p.contains("samsung"))
+    }
+
+    private fun foregroundAppPackage(): String? {
+        try {
+            for (window in windows) {
+                val root = try { window.root } catch (_: Exception) { null } ?: continue
+                val name = root.packageName?.toString()
+                root.recycle()
+                if (!name.isNullOrBlank() && name != this.packageName && !isKeyboardPackage(name)) {
+                    return name
+                }
+            }
+        } catch (_: Exception) { }
+        val name = try { rootInActiveWindow?.packageName?.toString() } catch (_: Exception) { null }
+        return name?.takeIf { it != this.packageName && !isKeyboardPackage(it) }
+    }
 
     /**
      * متن فقط وقتی کاندید جستجو است که رویداد از فیلد قابل‌ویرایش بیاید و
