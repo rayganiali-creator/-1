@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import com.example.blocker.PrefsManager
 import com.example.blocker.core.SessionMode
@@ -44,6 +45,11 @@ class MainActivity : AppCompatActivity() {
     private var liveRing: UiKit.LiveRingView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppCompatDelegate.setDefaultNightMode(when (PrefsManager.getTheme(this)) {
+            "light" -> AppCompatDelegate.MODE_NIGHT_NO
+            "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+            else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        })
         super.onCreate(savedInstanceState)
         val (scroll, col) = UiKit.screen(this)
         column = col
