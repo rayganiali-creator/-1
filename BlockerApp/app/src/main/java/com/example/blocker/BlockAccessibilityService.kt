@@ -401,7 +401,8 @@ class BlockAccessibilityService : AccessibilityService() {
                 }
             }
         } finally {
-            // root از rootInActiveWindow گرفته شده و recycle آن با خود سیستم است؛ فرزندان داخل collectText مدیریت می‌شوند.
+            // ریشه‌ی پنجره از AccessibilityWindowInfo ممکن است کپی مستقل باشد.
+            try { root.recycle() } catch (_: Exception) { }
         }
         return null
     }
@@ -514,7 +515,9 @@ class BlockAccessibilityService : AccessibilityService() {
             }
         } catch (_: Exception) { }
         val active = try { rootInActiveWindow } catch (_: Exception) { null }
-        return if (active?.packageName?.toString() == packageName) active else null
+        if (active?.packageName?.toString() == packageName) return active
+        try { active?.recycle() } catch (_: Exception) { }
+        return null
     }
 
     /** تشخیص محافظه‌کارانه‌ی عمل جستجو/ارسال در فیلد ورودی قابل‌دسترسی. */
