@@ -163,8 +163,8 @@ class MainActivity : AppCompatActivity() {
         if (a11y && session != null) {
             column.addView(UiKit.statusPill(this, true, "محافظت فعال است", level.descriptionFa))
         } else if (a11y) {
-            column.addView(UiKit.statusPill(this, false, "سشنی فعال نیست",
-                "بلاک فقط وسط سشن انجام می‌شود؛ برای شروع بلاک، یک سشن شروع کن."))
+            column.addView(UiKit.statusPill(this, true, "محافظت آماده است",
+                "قوانین فعالِ کلمه، سایت و اپ حتی بدون سشن هم اعمال می‌شوند؛ سشن فقط برای تایمر تمرکز و حالت Strict است."))
         } else {
             column.addView(UiKit.statusPill(this, false, "محافظت خاموش است",
                 "سرویس دسترسی خاموش است؛ در این وضعیت هیچ بلاکی اجرا نمی‌شود."))
